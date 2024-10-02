@@ -12,3 +12,10 @@ players:
     author_url: https://github.com/otobrglez
     repository_url: https://github.com/otobrglez/ztttm
     endpoint_url: http://tbd
+
+  - name: tttm-randx
+    author: Matjaz Lipus
+    tags: [ cloudflare-workers, python, random-strategy ]
+    author_url: https://github.com/matjaz
+    repository_url: https://github.com/matjaz/tttm-randx
+    endpoint_url: https://tttm-randx.matjaz.workers.dev/
