@@ -4,7 +4,7 @@ import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import Dependencies.*
 
 ThisBuild / version            := "0.0.1"
-ThisBuild / scalaVersion       := "3.5.0"
+ThisBuild / scalaVersion       := "3.5.1"
 ThisBuild / evictionErrorLevel := Level.Info
 
 lazy val root = (project in file("."))
@@ -64,3 +64,5 @@ lazy val root = (project in file("."))
       case other                                              => List(other)
     }
   )
+
+resolvers ++= Resolver. sonatypeOssRepos("snapshots")
