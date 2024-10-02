@@ -1,4 +1,4 @@
-# TTTM: The machine-to-machine challenge of tic-tac-toe
+# TTTM: The machine-to-machine challenge of tic-tac-toe 🕹️
 
 [tttm] is a game of [tic-tac-toe][ttt] played between APIs that players implement themselves.
 
@@ -39,7 +39,7 @@ Move:X_2_2
 
 The player server replied by placing the symbol `X` in position `2,2` in the grid—in this case, the very bottom right.
 
-If for some reason the server is unable to reply, parse or whatever, please use the following payload structure:
+If, for some reason, the server is unable to reply or parse, please use the following payload structure:
 
 ```
 Error:Sorry. Can't do it bro.
@@ -47,7 +47,7 @@ Error:Sorry. Can't do it bro.
 
 ## Why?
 
-Why not? We cant to see who can build the fastest and most "intelligent" APIs in the universe.
+Why not? We want to see who can build the universe's fastest and most "intelligent" APIs [for the lolz](https://www.urbandictionary.com/define.php?term=for+the+lolz).
 
 ## Authors
 
