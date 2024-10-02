@@ -6,23 +6,27 @@ import zio.http.QueryParams
 
 import java.util.UUID
 
+enum DecoderError extends RuntimeException:
+  case MissingQueryParameter(name: String) extends DecoderError
+  case MissingPlayingSymbol                extends DecoderError
+
 object GameDecoder:
+  import DecoderError.*
   private val (moveSep, positionSep) = '_' -> "-"
 
   extension (queryParams: QueryParams)
-    def readParam[A](key: String)(
+    private def readParam[A](key: String)(
       code: String => A
-    )(implicit trace: Trace): ZIO[Any, Throwable, A] =
+    )(implicit trace: Trace): ZIO[Any, DecoderError, A] =
       ZIO
         .fromOption(queryParams.getAll(key).headOption)
         .flatMap(raw => ZIO.attempt(code(raw)))
-        .orElseFail(new IllegalArgumentException(s"Missing query parameter $key"))
+        .orElseFail(MissingQueryParameter(key))
 
-  def decode(queryParams: QueryParams): ZIO[Any, Throwable, Game] = for
-    gid <- queryParams.readParam("gid")(UUID.fromString)
-
+  def decode(queryParams: QueryParams): ZIO[Any, DecoderError, Game] = for
+    gid          <- queryParams.readParam("gid")(UUID.fromString)
     maybePlaying <- queryParams.readParam("playing")(_.headOption)
-    playing      <- fromOption(maybePlaying).orElseFail(new IllegalArgumentException("Missing playing symbol"))
+    playing      <- fromOption(maybePlaying).orElseFail(MissingPlayingSymbol)
 
     moves <- fromOption(queryParams.getAll("moves").headOption).flatMap { r =>
       ZIO.attempt(

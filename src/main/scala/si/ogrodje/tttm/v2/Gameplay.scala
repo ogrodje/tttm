@@ -39,9 +39,9 @@ final case class GameEnded(
 ) extends GameplayEvent
 
 final case class Gameplay private (
-  gid: UUID,
-  serverA: GameServer,
-  serverB: GameServer
+                                    gid: UUID,
+                                    serverA: PlayerServer,
+                                    serverB: PlayerServer
 ):
   private type Events = List[GameplayEvent]
 
@@ -68,10 +68,10 @@ final case class Gameplay private (
       case _                 => Left(new RuntimeException(s"Error parsing body."))
 
   private def callMove(
-    client: Client,
-    servers: List[GameServer],
-    game: Game,
-    events: Events
+                        client: Client,
+                        servers: List[PlayerServer],
+                        game: Game,
+                        events: Events
   ): ZIO[Scope, Throwable, (Game, Events)] = for
     server <- ZIO.fromOption(servers.headOption).orElseFail(new IllegalArgumentException("Missing first server"))
     (gid, serverEndpoint) = game.gid -> server.serverEndpoint
@@ -124,4 +124,4 @@ final case class Gameplay private (
   yield ()
 
 object Gameplay:
-  def make(serverA: GameServer, serverB: GameServer): Gameplay = Gameplay(gid = UUID.randomUUID(), serverA, serverB)
+  def make(serverA: PlayerServer, serverB: PlayerServer): Gameplay = Gameplay(gid = UUID.randomUUID(), serverA, serverB)

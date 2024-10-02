@@ -8,7 +8,7 @@ import zio.{Task, ZIO}
 
 import scala.util.Random
 
-final class SimpleGameServer private (port: Int) extends GameServer:
+final class SimplePlayerServer private(port: Int) extends PlayerServer:
 
   // Pick random empty field. No strategy.
   private val computeMove: Game => Either[String, Move] = game =>
@@ -46,5 +46,5 @@ final class SimpleGameServer private (port: Int) extends GameServer:
     logInfo(s"Booting server on port $port") *>
       Server.serve(routes).provide(Server.defaultWithPort(port))
 
-object SimpleGameServer:
-  def make(port: Int) = new SimpleGameServer(port)
+object SimplePlayerServer:
+  def make(port: Int) = new SimplePlayerServer(port)

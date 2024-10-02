@@ -10,11 +10,11 @@ import zio.prelude.NonEmptyList
 import si.ogrodje.tttm.v2.Status.*
 
 final class Gameplay2 private (
-  gid: GID,
-  serverA: GameServer,
-  serverB: GameServer
+                                gid: GID,
+                                serverA: PlayerServer,
+                                serverB: PlayerServer
 ) {
-  private type Servers = NonEmptyList[GameServer]
+  private type Servers = NonEmptyList[PlayerServer]
   private def swapServers(servers: Servers): Servers = NonEmptyList(servers.last, servers.head)
 
   private def mkMoveRequest(endpoint: ServerEndpoint, game: Game): Task[Request] = for
@@ -39,7 +39,7 @@ final class Gameplay2 private (
       case (_, Right(error)) => Left(new RuntimeException(error))
       case (err, err2)       => Left(new RuntimeException(s"Error parsing body - ${err} / ${err2}"))
 
-  private def requestMove(client: Client, server: GameServer, game: Game): ZIO[Scope, Throwable, Move] = for
+  private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, Throwable, Move] = for
     request  <- mkMoveRequest(server.serverEndpoint, game)
     response <- client.request(request)
     move     <- response.body.asString.flatMap(body => ZIO.fromEither(parseBody(body)))
@@ -70,7 +70,7 @@ final class Gameplay2 private (
 
 object Gameplay2:
   def make(
-    serverA: GameServer,
-    serverB: GameServer,
-    gid: GID = UUID.randomUUID()
+            serverA: PlayerServer,
+            serverB: PlayerServer,
+            gid: GID = UUID.randomUUID()
   ): Gameplay2 = new Gameplay2(gid, serverA, serverB)

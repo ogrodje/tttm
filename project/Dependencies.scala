@@ -11,7 +11,7 @@ object Dependencies {
     val log4cats: Version      = "2.7.0"
     val scalaTest: Version     = "3.2.19"
     val doobie: Version        = "1.0.0-RC5"
-    val sentryLogback: Version = "7.12.0"
+    val sentryLogback: Version = "7.12.1"
     val ical4j: Version        = "4.0.1"
     val quartz: Version        = "2.3.2"
     val zio: Version           = "2.1.9"
@@ -26,43 +26,14 @@ object Dependencies {
     "dev.zio" %% "zio-test-sbt",
     "dev.zio" %% "zio-test-magnolia"
   ).map(_ % Versions.zio % Test) ++ Seq(
-    "dev.zio" %% "zio-prelude" % "1.0.0-RC30",
-    "dev.zio" %% "zio-http"    % "3.0.0-RC10"
+    "dev.zio" %% "zio-prelude" % "1.0.0-RC31",
+    "dev.zio" %% "zio-http"    % "3.0.1"
   ) ++ Seq(
     "dev.zio" %% "zio-logging",
     "dev.zio" %% "zio-logging-slf4j2"
   ).map(_ % Versions.zioLogging) ++ Seq(
     "ch.qos.logback" % "logback-classic" % "1.5.7"
   )
-
-  lazy val catsAndFriends: Modules = Seq(
-    "org.typelevel" %% "cats-effect" % "3.5.4"
-  ) ++ Seq(
-    "com.monovore" %% "decline",
-    "com.monovore" %% "decline-effect"
-  ).map(_ % Versions.decline)
-
-  lazy val circe: Modules = Seq(
-    "io.circe" %% "circe-yaml-v12" % "1.15.0"
-  ) ++ Seq(
-    "io.circe" %% "circe-core",
-    "io.circe" %% "circe-generic",
-    "io.circe" %% "circe-parser"
-  ).map(_ % "0.15.0-M1")
-
-  lazy val fs2: Modules = Seq(
-    "co.fs2" %% "fs2-core",
-    "co.fs2" %% "fs2-io"
-  ).map(_ % Versions.fs2)
-
-  lazy val http4s: Modules = Seq(
-    "org.http4s" %% "http4s-core",
-    "org.http4s" %% "http4s-dsl",
-    "org.http4s" %% "http4s-circe",
-    "org.http4s" %% "http4s-blaze-core",
-    "org.http4s" %% "http4s-blaze-client",
-    "org.http4s" %% "http4s-blaze-server"
-  ).map(_ % Versions.http4s)
 
   lazy val logging: Modules = Seq(
     "ch.qos.logback" % "logback-classic" % "1.5.6"
@@ -80,23 +51,6 @@ object Dependencies {
 
   lazy val scalaTags: Modules = Seq(
     "com.lihaoyi" %% "scalatags" % "0.13.1"
-  )
-
-  lazy val jsoup: Modules = Seq(
-    "org.jsoup" % "jsoup" % "1.18.1"
-  )
-
-  lazy val db: Modules = Seq(
-    "org.flywaydb"   % "flyway-core"                % "10.15.2",
-    "org.tpolecat"  %% "doobie-core"                % Versions.doobie,
-    "org.tpolecat"  %% "doobie-hikari"              % Versions.doobie,
-    "org.tpolecat"  %% "doobie-postgres"            % Versions.doobie,
-    "org.postgresql" % "postgresql"                 % "42.7.3",
-    "org.flywaydb"   % "flyway-database-postgresql" % "10.15.2"
-  )
-
-  lazy val ical4j: Modules = Seq(
-    "org.mnode.ical4j" % "ical4j" % Versions.ical4j
   )
 
   lazy val quartz: Modules = Seq(
