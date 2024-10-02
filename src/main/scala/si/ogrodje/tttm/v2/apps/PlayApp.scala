@@ -1,6 +1,6 @@
 package si.ogrodje.tttm.v2.apps
 
-import si.ogrodje.tttm.v2.{ExternalPlayerServer, Gameplay, PlayerServer}
+import si.ogrodje.tttm.v2.{ExternalPlayerServer, Gameplay, Match, PlayerServer}
 import zio.ZIO.logInfo
 import zio.cli.*
 import zio.http.{Client, URL}
@@ -47,71 +47,9 @@ object PlayApp extends ZIOCliDefault:
     numberOfGames: BigInt = BigInt(1),
     size: BigInt = 3
   )(serverAUrl: URL, serverBUrl: URL) = for
-    _       <- logInfo(s"Server A: $serverAUrl, server B: $serverBUrl, size: $size, should score: $shouldScore")
-    serverA  = ExternalPlayerServer.fromURL(serverAUrl)
-    serverB  = ExternalPlayerServer.fromURL(serverBUrl)
-    gameplay = Gameplay.make(serverA, serverB)
-    _       <- gameplay.play.provide(Client.default.and(Scope.default))
-    out     <- playGames(numberOfGames)(serverAUrl, serverBUrl).provide(Client.default.and(Scope.default))
-    _       <- printLine(out)
+    _   <- logInfo(s"Server A: $serverAUrl, server B: $serverBUrl, size: $size, should score: $shouldScore")
+    out <- Match
+             .playGames(serverAUrl, serverBUrl, numberOfGames.toLong, concurrentProcesses = 3)
+             .provide(Client.default.and(Scope.default))
+    _   <- printLine(out)
   yield ()
-
-  final case class PlayerResults(
-    playedGames: Int = 0,
-    gamesWon: Int = 0,
-    gamesLost: Int = 0
-  )
-  object PlayerResults:
-    val empty: PlayerResults = PlayerResults(0, 0, 0)
-
-  private def playGames(numberOfGames: NumberOfGames)(serverAUrl: URL, serverBUrl: URL) =
-    val concurrent                   = 4
-    val servers @ (serverA, serverB) =
-      ExternalPlayerServer.fromURL(serverAUrl) -> ExternalPlayerServer.fromURL(serverBUrl)
-
-    ZStream
-      .range(0, numberOfGames.toInt)
-      .zipWithIndex
-      .map {
-        case (n, i) if i % 2 == 0 => n -> (serverA -> serverB)
-        case (n, _) => n -> (serverB -> serverA)
-      }
-      .mapZIOParUnordered(concurrent) { n =>
-        Gameplay.make(serverA, serverB).play
-      }
-      .runFold(Map.empty[PlayerServer, PlayerResults]) { case (acc, (result, maybeWinner)) =>
-        maybeWinner.fold(
-          // No winner
-          acc.updatedWith(serverA) {
-            case Some(v) => Some(v.copy(playedGames = v.playedGames + 1))
-            case None    => Some(PlayerResults.empty.copy(playedGames = 1))
-          } ++
-            acc.updatedWith(serverB) {
-              case Some(v) => Some(v.copy(playedGames = v.playedGames + 1))
-              case None    => Some(PlayerResults.empty.copy(playedGames = 1))
-            }
-        ) {
-          case winner if winner == serverA =>
-            acc.updatedWith(serverA) {
-              case Some(v) => Some(v.copy(playedGames = v.playedGames + 1))
-              case None    => Some(PlayerResults.empty.copy(playedGames = 1))
-            } ++
-              acc.updatedWith(serverB) {
-                case Some(v) => Some(v.copy(playedGames = v.playedGames + 1))
-                case None    => Some(PlayerResults.empty.copy(playedGames = 1))
-              }
-          case winner if winner == serverB =>
-            println("won by server B")
-            acc.updatedWith(serverA) {
-              case Some(v) => Some(v.copy(playedGames = v.playedGames + 1))
-              case None    => Some(PlayerResults.empty.copy(playedGames = 1))
-            } ++
-              acc.updatedWith(serverB) {
-                case Some(v) => Some(v.copy(playedGames = v.playedGames + 1))
-                case None    => Some(PlayerResults.empty.copy(playedGames = 1))
-              }
-          case _                           =>
-            println("what?")
-            acc
-        }
-      }
