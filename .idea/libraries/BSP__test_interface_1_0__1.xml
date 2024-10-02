@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="BSP: test-interface-1.0__1" external-system-id="BSP">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.18/org.scala-sbt/sbt/1.9.9/test-interface-1.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

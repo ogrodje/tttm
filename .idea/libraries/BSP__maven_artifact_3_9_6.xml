@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="BSP: maven-artifact-3.9.6" external-system-id="BSP">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/apache/maven/maven-artifact/3.9.6/maven-artifact-3.9.6.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

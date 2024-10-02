@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="BSP: zero-allocation-hashing-0.10.1" external-system-id="BSP">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.18/org.scala-sbt/sbt/1.9.9/zero-allocation-hashing-0.10.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
