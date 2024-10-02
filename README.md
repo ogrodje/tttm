@@ -45,6 +45,10 @@ If, for some reason, the server is unable to reply or parse, please use the foll
 Error:Sorry. Can't do it bro.
 ```
 
+## Example Player Servers
+
+- [tttm-randy](https://github.com/otobrglez/tttm-randy) is a sample player server implemented in Python 3 with Flask and uses "random strategy" where it will "play" any field that is empty on the given grid.
+
 ## Why?
 
 Why not? We want to see who can build the universe's fastest and most "intelligent" APIs [for the lolz](https://www.urbandictionary.com/define.php?term=for+the+lolz).
