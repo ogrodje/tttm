@@ -1,12 +1,11 @@
 # players.yml
 players:
-  - name: tttm-flask-randy
+  - name: tttm-randy
     author: Oto Brglez
     tags: [flask, python, random-strategy]
     author_url: https://github.com/otobrglez
-    repository_url: https://github.com/otobrglez/tttm-py
+    repository_url: https://github.com/otobrglez/tttm-randy
     endpoint_url: http://tbd
-
 
   - name: ztttm
     author: Oto Brglez
