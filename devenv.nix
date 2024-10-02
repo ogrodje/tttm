@@ -2,7 +2,7 @@
 {
   cachix.enable = false;
 
-  packages = [  ];
+  packages = [ pkgs.yq  ];
 
   languages.scala = {
     enable = true;
