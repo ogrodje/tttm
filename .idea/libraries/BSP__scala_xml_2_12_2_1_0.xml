@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="BSP: scala-xml_2.12-2.1.0" external-system-id="BSP">
-    <CLASSES>
-      <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.18/lib/scala-xml_2.12-2.1.0.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

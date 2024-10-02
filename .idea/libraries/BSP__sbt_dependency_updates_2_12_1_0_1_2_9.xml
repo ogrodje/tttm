@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="BSP: sbt-dependency-updates_2.12_1.0-1.2.9" external-system-id="BSP">
-    <CLASSES>
-      <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/jmotor/sbt/sbt-dependency-updates_2.12_1.0/1.2.9/sbt-dependency-updates_2.12_1.0-1.2.9.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

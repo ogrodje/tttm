@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="BSP: zinc-classfile_2.12-1.9.6" external-system-id="BSP">
-    <CLASSES>
-      <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.18/org.scala-sbt/sbt/1.9.9/zinc-classfile_2.12-1.9.6.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

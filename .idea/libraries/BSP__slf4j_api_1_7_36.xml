@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="BSP: slf4j-api-1.7.36" external-system-id="BSP">
-    <CLASSES>
-      <root url="jar://$USER_HOME$/.sbt/boot/scala-2.12.18/org.scala-sbt/sbt/1.9.9/slf4j-api-1.7.36.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>
