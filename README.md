@@ -5,7 +5,7 @@
 ## Rules
 
 1. Players can use whatever language and whatever technology.
-2. The player must submit the URL to a server via the [PR request](https://github.com/ogrodje/tttm/pulls) on this repository.
+2. The player must submit the URL to a server via the [PR request](https://github.com/ogrodje/tttm/pulls) on this repository. All player servers are listed in [players.yml](./players.yml).
 3. The player can submit as many servers as he or she wants.
 4. The server needs to follow the [Player Server Protocol](#player-server-protocol) described in this document.
 5. The game server will randomly pick player servers and execute gameplay.
