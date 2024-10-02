@@ -1,3 +1,4 @@
+.envrc
 # Devenv
 .devenv*
 devenv.local.nix

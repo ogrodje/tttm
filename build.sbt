@@ -65,4 +65,7 @@ lazy val root = (project in file("."))
     }
   )
 
-resolvers ++= Resolver. sonatypeOssRepos("snapshots")
+// resolvers ++= Resolver.sonatypeOssRepos("snapshots")
+
+resolvers ++= Dependencies.projectResolvers ++
+  Resolver.sonatypeOssRepos("snapshots")

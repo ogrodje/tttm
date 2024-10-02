@@ -27,7 +27,8 @@ object Dependencies {
     "dev.zio" %% "zio-test-magnolia"
   ).map(_ % Versions.zio % Test) ++ Seq(
     "dev.zio" %% "zio-prelude" % "1.0.0-RC31",
-    "dev.zio" %% "zio-http"    % "3.0.1"
+    "dev.zio" %% "zio-http"    % "3.0.1",
+    "dev.zio" %% "zio-cli"     % "0.5.0"
   ) ++ Seq(
     "dev.zio" %% "zio-logging",
     "dev.zio" %% "zio-logging-slf4j2"

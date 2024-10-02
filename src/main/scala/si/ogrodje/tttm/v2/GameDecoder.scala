@@ -23,21 +23,24 @@ object GameDecoder:
         .flatMap(raw => ZIO.attempt(code(raw)))
         .orElseFail(MissingQueryParameter(key))
 
+  private def splitMoves(raw: String) = ZIO.attempt(
+    raw
+      .split(moveSep)
+      .map(_.split(positionSep, 3))
+      .map {
+        case Array(symbol, x, y) if validSymbols.contains(symbol.charAt(0)) =>
+          symbol.charAt(0) -> (x.toInt -> y.toInt)
+      }
+  )
+
   def decode(queryParams: QueryParams): ZIO[Any, DecoderError, Game] = for
     gid          <- queryParams.readParam("gid")(UUID.fromString)
     maybePlaying <- queryParams.readParam("playing")(_.headOption)
     playing      <- fromOption(maybePlaying).orElseFail(MissingPlayingSymbol)
-
-    moves <- fromOption(queryParams.getAll("moves").headOption).flatMap { r =>
-      ZIO.attempt(
-        r.split(moveSep)
-          .map(_.split(positionSep, 3))
-          .map {
-            case Array(symbol, x, y) if validSymbols.contains(symbol.charAt(0)) =>
-              symbol.charAt(0) -> (x.toInt -> y.toInt)
-          }
-      )
-    }.orElse(ZIO.succeed(Array.empty[Move]))
+    moves        <-
+      fromOption(queryParams.getAll("moves").headOption)
+        .flatMap(splitMoves)
+        .orElse(ZIO.succeed(Array.empty[Move]))
   yield Game.make(
     gid,
     playing,

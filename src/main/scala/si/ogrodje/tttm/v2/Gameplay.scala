@@ -1,54 +1,28 @@
 package si.ogrodje.tttm.v2
 
-import zio.Console.printLine
-import zio.{Scope, Task, ZIO}
-import zio.ZIO.logInfo
-import zio.http.{Client, Path, Request, URL}
-import Status.*
-import java.time.LocalDateTime
+import si.ogrodje.tttm.v2
+import zio.*
+import zio.http.*
+
 import java.util.UUID
+import zio.ZIO.{logDebug, logInfo}
+import zio.Console.printLine
+import zio.prelude.NonEmptyList
+import si.ogrodje.tttm.v2.Status.*
 
-sealed trait GameplayEvent:
-  def gid: GID
-  def createdAt: LocalDateTime
-
-final case class GameStarted(
+final class Gameplay private (
   gid: GID,
-  serverAEndpoint: ServerEndpoint,
-  serverBEndpoint: ServerEndpoint,
-  createdAt: LocalDateTime = LocalDateTime.now
-) extends GameplayEvent
-
-final case class RequestSent(
-  gid: GID,
-  serverEndpoint: ServerEndpoint,
-  createdAt: LocalDateTime = LocalDateTime.now
-) extends GameplayEvent
-
-final case class ResponseReceived(
-  gid: GID,
-  serverEndpoint: ServerEndpoint,
-  move: Move,
-  createdAt: LocalDateTime = LocalDateTime.now
-) extends GameplayEvent
-
-final case class GameEnded(
-  gid: GID,
-  status: Status,
-  createdAt: LocalDateTime = LocalDateTime.now
-) extends GameplayEvent
-
-final case class Gameplay private (
-                                    gid: UUID,
-                                    serverA: PlayerServer,
-                                    serverB: PlayerServer
+  serverA: PlayerServer,
+  serverB: PlayerServer
 ):
-  private type Events = List[GameplayEvent]
+  private type Servers = NonEmptyList[PlayerServer]
+  private def swapServers(servers: Servers): Servers = NonEmptyList(servers.last, servers.head)
 
   private def mkMoveRequest(endpoint: ServerEndpoint, game: Game): Task[Request] = for
     url         <- ZIO.fromEither(URL.decode(endpoint))
     queryParams <- ZIO.attempt(GameEncoder.encode(game))
-    request = Request.get(url).updatePath(_ => Path("/move")).setQueryParams(queryParams)
+    request      = Request.get(url).updatePath(_ => Path("/move")).setQueryParams(queryParams)
+    _           <- logDebug(s"Requesting ${request.url}")
   yield request
 
   private def parseBody(body: String): Either[Throwable, Move] =
@@ -65,63 +39,50 @@ final case class Gameplay private (
     (maybeMove, maybeError) match
       case (Right(move), _)  => Right(move)
       case (_, Right(error)) => Left(new RuntimeException(error))
-      case _                 => Left(new RuntimeException(s"Error parsing body."))
+      case (err, err2)       => Left(new RuntimeException(s"Error parsing body - ${err} / ${err2}"))
 
-  private def callMove(
-                        client: Client,
-                        servers: List[PlayerServer],
-                        game: Game,
-                        events: Events
-  ): ZIO[Scope, Throwable, (Game, Events)] = for
-    server <- ZIO.fromOption(servers.headOption).orElseFail(new IllegalArgumentException("Missing first server"))
-    (gid, serverEndpoint) = game.gid -> server.serverEndpoint
-    _ <- logInfo(s"Calling move to ${server.show}")
-    requestSent = RequestSent(gid, serverEndpoint)
-    response           <- mkMoveRequest(serverEndpoint, game).flatMap(client.request)
-    move @ (symbol, _) <- response.body.asString.flatMap(body => ZIO.fromEither(parseBody(body)))
+  private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, Throwable, Move] = for
+    request  <- mkMoveRequest(server.serverEndpoint, game)
+    response <- client.request(request)
+    move     <- response.body.asString.flatMap(body => ZIO.fromEither(parseBody(body)))
+  yield move
 
-    _ <- ZIO.when(symbol != game.playing)(ZIO.fail(new RuntimeException("Server replied with invalid symbol")))
-    _ <- logInfo(s"Replied with ${move}")
-    responseReceived = ResponseReceived(gid, serverEndpoint, move)
-
-    moveEvents = events ++ List(requestSent, responseReceived)
-    newGame <- ZIO.fromEither(game.append(move))
-
-    response <- newGame.status match
-      case status @ Won(symbol) =>
-        logInfo(s"Symbol: $symbol has won.").as(
-          newGame -> (moveEvents :+ GameEnded(game.gid, status))
+  private def handleGame(client: Client, servers: Servers)(
+    game: Game
+  ): ZIO[Scope, Throwable, Game] =
+    game.status match
+      case Pending     =>
+        processRequest(
+          client,
+          servers = swapServers(servers),
+          game = game.withSwitchPlaying
         )
-      case status @ Tide        =>
-        logInfo("Game ended with tide").as(
-          newGame -> (moveEvents :+ GameEnded(game.gid, status))
-        )
-      case Pending              =>
-        logInfo("Doing another move") *>
-          callMove(
-            client,
-            servers = servers.reverse,
-            game = newGame.withSwitchPlaying,
-            moveEvents
-          )
-  yield response
+      case Tide        => logInfo("Tide").as(game)
+      case Won(symbol) => logInfo(s"Won by $symbol").as(game)
 
-  def play(): ZIO[Scope & Client, Throwable, Unit] = for
-    client <- ZIO.service[Client]
-    game = Game.make(gid)
-    _                   <- logInfo(s"Playing ${serverA.show} VS. ${serverB.show}, gid: ${game.gid}")
-    (finalGame, events) <- callMove(
-      client,
-      serverA :: serverB :: Nil,
-      game,
-      events = List(
-        GameStarted(gid, serverAEndpoint = serverA.serverEndpoint, serverBEndpoint = serverB.serverEndpoint)
-      )
-    )
-    _                   <- logInfo(s"Status: ${finalGame.status}")
-    _                   <- printLine(s"Final game:\n${finalGame.show}")
-  // _                   <- printLine(events.mkString("\n"))
-  yield ()
+  private def processRequest(
+    client: Client,
+    servers: Servers,
+    game: Game
+  ): ZIO[Scope, Throwable, Game] =
+    requestMove(client, servers.head, game).flatMap { move =>
+      game.appendZIO(move).flatMap(handleGame(client, servers))
+    }
+
+  def play: ZIO[zio.Scope & Client, Throwable, (Game, Option[PlayerServer])] = for
+    client     <- ZIO.service[Client]
+    servers     = NonEmptyList(serverA, serverB)
+    result     <- processRequest(client, servers, Game.make(gid))
+    _          <- logInfo(s"Gid: ${result.gid}, status: ${result.status}, moves: ${result.moves.length}")
+    maybeWinner = result.status match
+                    case Won(`X`) => Some(serverA)
+                    case Won(`O`) => Some(serverB)
+                    case _        => None
+  yield result -> maybeWinner
 
 object Gameplay:
-  def make(serverA: PlayerServer, serverB: PlayerServer): Gameplay = Gameplay(gid = UUID.randomUUID(), serverA, serverB)
+  def make(
+    serverA: PlayerServer,
+    serverB: PlayerServer,
+    gid: GID = UUID.randomUUID()
+  ): Gameplay = new Gameplay(gid, serverA, serverB)
