@@ -36,7 +36,7 @@ The game server will pass the following URL `query parameters` to the player ser
 The content of the successful response (HTTP status 200) needs to be a string that should have the following structure:
 
 ```
-Move:X_2_2
+Move:X-2-2
 ```
 
 The player server replied by placing the symbol `X` in position `2,2` in the grid—in this case, the very bottom right.
