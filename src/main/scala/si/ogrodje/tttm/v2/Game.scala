@@ -28,7 +28,7 @@ object Size:
 
 @jsonDiscriminator("type")
 enum Status:
-  case Tide
+  case Tie
   case Pending
   case Won(symbol: Symbol)
 object Status:
@@ -80,7 +80,7 @@ final case class Game private (
       case true -> false => Won(X)
       case false -> true => Won(O)
       case true -> true  => Won(X)
-      case _ if isFull   => Tide
+      case _ if isFull   => Tie
       case _             => Pending
 
   def show: String =

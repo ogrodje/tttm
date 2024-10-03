@@ -28,7 +28,7 @@ object GameTest extends ZIOSpecDefault:
       assertTrue(Game.empty.status == Pending)
       assertTrue(Game.empty.appendUnsafe(X -> (1, 1)).status == Pending)
 
-      val tideGame = Game.empty.appendUnsafe(
+      val tieGame = Game.empty.appendUnsafe(
         X -> (0, 1),
         O -> (0, 0),
         X -> (0, 2),
@@ -39,7 +39,7 @@ object GameTest extends ZIOSpecDefault:
         O -> (2, 1),
         X -> (2, 2)
       )
-      assertTrue(tideGame.status == Tide)
+      assertTrue(tieGame.status == Tie)
 
       val wonGame = Game.empty.appendUnsafe(
         X -> (1, 1),
@@ -50,7 +50,7 @@ object GameTest extends ZIOSpecDefault:
       )
       assertTrue(wonGame.status == Won(X))
     },
-    test("status of tide") {
+    test("status of tie") {
       val game = Game.empty.appendUnsafe(
         X -> (0, 0),
         O -> (1, 0),

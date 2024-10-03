@@ -1,19 +1,17 @@
 package si.ogrodje.tttm.v2
 
-import si.ogrodje.tttm.v2.apps.PlayApp.NumberOfGames
-import zio.Console.printLine
-import zio.{Scope, ZIO}
-import zio.http.{Client, URL}
-import zio.stream.ZStream
 import zio.ZIO.logInfo
+import zio.http.{Client, URL}
 import zio.json.*
+import zio.stream.ZStream
+import zio.{Scope, ZIO}
 
 @jsonHintNames(SnakeCase)
 final case class MatchResult(
   played: Long = 0,
   won: Long = 0,
   lost: Long = 0,
-  tide: Long = 0
+  tie: Long = 0
 )
 object MatchResult:
   val empty: MatchResult                                 = apply()
@@ -41,7 +39,7 @@ object Match:
         lost = maybeWinner
           .flatMap(s => Option.when(s == serverB)(resultsA.lost + 1))
           .getOrElse(resultsA.lost),
-        tide = maybeWinner.fold(resultsA.tide + 1)(_ => resultsA.tide)
+        tie = maybeWinner.fold(resultsA.tie + 1)(_ => resultsA.tie)
       ),
       serverB -> resultsB.copy(
         played = resultsB.played + 1,
@@ -51,7 +49,7 @@ object Match:
         lost = maybeWinner
           .flatMap(s => Option.when(s == serverA)(resultsB.lost + 1))
           .getOrElse(resultsB.lost),
-        tide = maybeWinner.fold(resultsB.tide + 1)(_ => resultsB.tide)
+        tie = maybeWinner.fold(resultsB.tie + 1)(_ => resultsB.tie)
       )
     )
 

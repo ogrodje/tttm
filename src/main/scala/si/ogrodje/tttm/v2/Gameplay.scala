@@ -42,7 +42,7 @@ final class Gameplay private (
           servers = swapServers(servers),
           game = game.withSwitchPlaying
         )
-      case Tide        => reporter.logInfo("Tide").as(game)
+      case Tie        => reporter.logInfo("Tie").as(game)
       case Won(symbol) => reporter.logInfo(s"Won by $symbol").as(game)
 
   private def processRequest(
