@@ -3,12 +3,13 @@ package si.ogrodje.tttm.v2
 import si.ogrodje.tttm.v2.Status.Won
 import zio.Duration
 import zio.json.*
+import zio.json.internal.Write
 import zio.prelude.NonEmptyList
 import zio.schema.{DeriveSchema, Schema}
 
 @jsonHintNames(SnakeCase)
 final case class GameplayResult(
-  duration: Duration,
+  @jsonField("duration_ms") duration: Duration,
   status: Status,
   @jsonField("winner") maybeWinner: Option[PlayerServerID] = None,
   @jsonField("server_a") serverA: ServerResult,
@@ -16,6 +17,7 @@ final case class GameplayResult(
 )
 object GameplayResult:
   implicit val schema: Schema[GameplayResult]                  = DeriveSchema.gen
+  given durationJsonEncoder: JsonEncoder[Duration]             = JsonEncoder[Double].contramap(_.toMillis)
   given gameplayResultJsonEncoder: JsonEncoder[GameplayResult] = DeriveJsonEncoder.gen[GameplayResult]
 
   def fromGame(servers: NonEmptyList[PlayerServer], duration: Duration, game: Game): GameplayResult =
@@ -34,9 +36,9 @@ object GameplayResult:
 
 @jsonHintNames(SnakeCase)
 final case class ServerResult(
-  @jsonField("response_average") responseAverage: Double,
-  @jsonField("response_median") responseMedian: Double,
-  @jsonField("response_p99") responseP99: Double
+  @jsonField("response_average_ms") responseAverage: Double,
+  @jsonField("response_median_ms") responseMedian: Double,
+  @jsonField("response_p99_ms") responseP99: Double
 )
 
 object ServerResult:

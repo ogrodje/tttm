@@ -8,18 +8,20 @@ import zio.stream.ZStream
 import zio.ZIO.logInfo
 import zio.json.*
 
-final case class PlayerResults(
+@jsonHintNames(SnakeCase)
+final case class MatchResult(
   played: Long = 0,
   won: Long = 0,
   lost: Long = 0,
   tide: Long = 0
 )
-object PlayerResults:
-  val empty: PlayerResults = PlayerResults(0, 0, 0, 0)
+object MatchResult:
+  val empty: MatchResult                                 = apply()
+  given matchResultJsonEncoder: JsonEncoder[MatchResult] = DeriveJsonEncoder.gen[MatchResult]
 
 object Match:
   private type NumberOfGames = Long
-  private type MatchResults  = Map[PlayerServerID, PlayerResults]
+  private type MatchResults  = Map[PlayerServerID, MatchResult]
 
   private def updateResults(
     acc: MatchResults,
@@ -60,7 +62,7 @@ object Match:
     concurrentProcesses: Int = 4,
     size: Size = Size.default,
     maybeGameplayReporter: Option[GameplayReporter] = None
-  ): ZIO[Scope & Client, Throwable, Map[PlayerServerID, PlayerResults]] =
+  ): ZIO[Scope & Client, Throwable, Map[PlayerServerID, MatchResult]] =
     val servers @ (serverA, serverB) =
       ExternalPlayerServer.fromURL(serverAUrl) -> ExternalPlayerServer.fromURL(serverBUrl)
 
@@ -78,15 +80,13 @@ object Match:
           .tap(r => logInfo(s"Completed game n. ${n}"))
       }
       .runFold(
-        Map[PlayerServerID, PlayerResults](
-          serverA.id -> PlayerResults.empty,
-          serverB.id -> PlayerResults.empty
+        Map[PlayerServerID, MatchResult](
+          serverA.id -> MatchResult.empty,
+          serverB.id -> MatchResult.empty
         )
       ) { case (acc, (result, gameplayResult)) =>
-        println(s"Result: ${gameplayResult}")
-        
         val gr = gameplayResult.toJson
-        println(gr)
+        println(s"\nGR:\n${gr}")
 
         updateResults(acc, serverA.id, serverB.id, gameplayResult)
       }
