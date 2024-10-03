@@ -27,7 +27,7 @@ The game server will pass the following URL `query parameters` to the player ser
 - `playing` - A symbol that the player server needs to play. Possible values are `X` or `O`
 - `moves` - A string that represents the previous moves.
   - Moves are separated by `_` and positions by `-`
-  - Example: `X_1_1-O_0_0` means that the `X` symbol was at location `1,1` (centre of grid) and `O` at `0,0` (top-left corner of the grid)
+  - Example: `X-1-1_O-0-0` means that the `X` symbol was at location `1,1` (centre of grid) and `O` at `0,0` (top-left corner of the grid)
 
 ### Body
 
