@@ -6,15 +6,8 @@ players:
     repository_url: https://github.com/otobrglez/tttm-randy
     endpoint_url: http://tttm-randy.ogrodje.si
 
-  - name: ztttm
-    author: Oto Brglez
-    tags: [ scala, zio, random-strategy ]
-    author_url: https://github.com/otobrglez
-    repository_url: https://github.com/otobrglez/ztttm
-    endpoint_url: http://tbd
-
   - name: tttm-randx
-    author: Matjaz Lipus
+    author: Matjaž Lipuš
     tags: [ cloudflare-workers, python, random-strategy ]
     author_url: https://github.com/matjaz
     repository_url: https://github.com/matjaz/tttm-randx

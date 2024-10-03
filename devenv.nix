@@ -2,7 +2,11 @@
 {
   cachix.enable = false;
 
-  packages = [ pkgs.yq  ];
+  packages = [ 
+  	pkgs.yq  
+	pkgs.jq
+	pkgs.websocat
+  ];
 
   languages.scala = {
     enable = true;
