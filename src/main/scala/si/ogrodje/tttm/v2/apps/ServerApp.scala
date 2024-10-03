@@ -1,6 +1,7 @@
 package si.ogrodje.tttm.v2.apps
 
-import si.ogrodje.tttm.v2.Match
+import si.ogrodje.tttm.v2.{Match, QueryParamOps}
+import QueryParamOps.*
 import zio.*
 import zio.http.*
 import zio.ZIO.{logError, logInfo}
@@ -24,6 +25,7 @@ object ServerApp extends ZIOAppDefault:
   private def sandboxSocketApp(
     serverAUrl: URL,
     serverBUrl: URL,
+    size: Int,
     numberOfGames: Long
   ): WebSocketApp[zio.Scope & Client] =
     Handler.webSocket { channel =>
@@ -34,7 +36,7 @@ object ServerApp extends ZIOAppDefault:
               channel.send(
                 Read(WebSocketFrame.text(s"Greetings lets play the match between ${serverAUrl} and ${serverBUrl}!"))
               )
-            _      <- logInfo(s"Starting game between ${serverAUrl} and ${serverBUrl} w/ ${numberOfGames}")
+            _      <- logInfo(s"Starting game between $serverAUrl and $serverBUrl w/ $numberOfGames, size: $size")
             result <- Match.playGames(serverAUrl, serverBUrl, numberOfGames, concurrentProcesses = 3)
             _      <- logInfo("Match completed")
 
@@ -51,27 +53,16 @@ object ServerApp extends ZIOAppDefault:
       }
     }
 
-  private def readURLFromQuery(queryParams: QueryParams, name: String): ZIO[Any, Throwable, URL] =
-    ZIO.fromEither(queryParams.queryParam(name).toRight(MissingQueryParameter(name)).flatMap(URL.decode))
-
-  private def readNumberOfGames(queryParams: QueryParams): ZIO[Any, Throwable, Int] =
-    ZIO
-      .succeed(queryParams.queryParam("number-of-games").getOrElse("10"))
-      .flatMap(r => ZIO.attempt(Integer.parseInt(r)))
-
-  val routes: Routes[Scope & Client, Nothing] =
+  private val routes: Routes[Scope & Client, Nothing] =
     Routes(
-      Method.GET / Root      -> handler(Response.text("Greetings at your service")),
-      Method.GET / "greet"   -> handler { (req: Request) =>
-        val name = req.queryParamToOrElse("name", "World")
-        Response.text(s"Hello $name!")
-      },
+      Method.GET / Root      -> handler(Response.text("Hello.")),
       Method.GET / "sandbox" -> handler { (req: Request) =>
         for
-          serverAUrl    <- readURLFromQuery(req.queryParameters, "server-a")
-          serverBUrl    <- readURLFromQuery(req.queryParameters, "server-b")
-          numberOfGames <- readNumberOfGames(req.queryParameters)
-          response      <- sandboxSocketApp(serverAUrl, serverBUrl, numberOfGames.toLong).toResponse
+          serverAUrl    <- req.queryParameters.requiredAs[URL]("server-a")
+          serverBUrl    <- req.queryParameters.requiredAs[URL]("server-b")
+          numberOfGames <- req.queryParameters.getAsWithDefault[Long]("number-of-games", 10)
+          size          <- req.queryParameters.getAsWithDefault[Int]("size", 3)
+          response      <- sandboxSocketApp(serverAUrl, serverBUrl, size, numberOfGames).toResponse
         yield response
       }.tapErrorZIO(th => logError(s"Boom with ${th.getMessage}"))
         .orDie

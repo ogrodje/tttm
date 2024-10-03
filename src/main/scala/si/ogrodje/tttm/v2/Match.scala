@@ -55,7 +55,9 @@ object Match:
     serverAUrl: URL,
     serverBUrl: URL,
     numberOfGames: NumberOfGames,
-    concurrentProcesses: Int = 4
+    concurrentProcesses: Int = 4,
+    size: Size = Size.default,
+    maybeGameplayReporter: Option[GameplayReporter] = None
   ): ZIO[Scope & Client, Throwable, Map[PlayerServer, PlayerResults]] =
     val servers @ (serverA, serverB) =
       ExternalPlayerServer.fromURL(serverAUrl) -> ExternalPlayerServer.fromURL(serverBUrl)
@@ -68,7 +70,10 @@ object Match:
         case (n, _) => n -> (serverB -> serverA)
       }
       .mapZIOParUnordered(concurrentProcesses) { case (n, (serverA, serverB)) =>
-        Gameplay.make(serverA, serverB).play.tap(r => logInfo(s"Completed game n. ${n}"))
+        Gameplay
+          .make(serverA, serverB, size, maybeGameplayReporter = maybeGameplayReporter)
+          .play
+          .tap(r => logInfo(s"Completed game n. ${n}"))
       }
       .runFold(
         Map[PlayerServer, PlayerResults](

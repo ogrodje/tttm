@@ -1,9 +1,10 @@
 package si.ogrodje.tttm.v2
 
-import zio.{Task, ZIO}
+import zio.{Duration, Task, ZIO}
 import zio.prelude.{NonEmptySet, Validation}
 
 import java.util.UUID
+import scala.annotation.targetName
 
 type Symbol = Char
 val X: Symbol                         = 'X'
@@ -14,9 +15,15 @@ val defaultPlaying: Symbol            = X
 
 type GID      = UUID
 type Position = (Int, Int)
-type Move     = (Symbol, Position)
-type Moves    = Array[Move]
-type Size     = Int
+final case class Move(symbol: Symbol, position: Position, duration: Duration = Duration.Zero)
+object Move:
+  def of(symbol: Symbol, position: Position): Move = Move(symbol, position)
+  def of(tpl: (Symbol, Position)): Move            = Move(tpl._1, tpl._2)
+
+type Moves = Array[Move]
+type Size  = Int
+object Size:
+  val default: Size = 3
 
 enum Status:
   case Tide
@@ -31,7 +38,7 @@ final case class Game private (
 ):
   import Status.*
   private def symbolAt: Position => Option[Symbol] = (x, y) =>
-    moves.find { case (_, (px, py)) => px == x && py == y }.map(_._1)
+    moves.find { case Move(_, (px, py), _) => px == x && py == y }.map(_._1)
 
   private def listOfSymbols: Symbol => List[Option[Symbol]] =
     symbol => (0 until size).toList.map(_ => Some(symbol))
@@ -85,7 +92,7 @@ final case class Game private (
 
   private def validateSymbols(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
     Validation.fromPredicateWith(new IllegalArgumentException("Only X or O symbols are allowed"))(moves)(
-      _.forall((symbol, _) => validSymbols.contains(symbol))
+      _.forall { case Move(symbol, _, _) => validSymbols.contains(symbol) }
     )
 
   private def validSequence(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
@@ -93,16 +100,16 @@ final case class Game private (
     else
       Validation
         .fromPredicate(moves)(_.sliding(2).forall {
-          case Seq((`X`, _), (`O`, _)) => true
-          case Seq((`O`, _), (`X`, _)) => true
-          case Seq(_, _)               => false
-          case _                       => true
+          case Seq(Move(`X`, _, _), Move(`O`, _, _)) => true
+          case Seq(Move(`O`, _, _), Move(`X`, _, _)) => true
+          case Seq(_, _)                             => false
+          case _                                     => true
         })
         .mapError(_ => new RuntimeException(s"Invalid sequence of symbols: ${moves.map(_._1).mkString(", ")}"))
 
   private def validateFirstMove(game: Game, moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
     Validation.fromPredicateWith(new RuntimeException("First move needs to be X"))((game.moves ++ moves).toSeq)(
-      _.headOption.exists((symbol, _) => symbol == X)
+      _.headOption.exists { case Move(symbol, _, _) => symbol == X }
     )
 
   private def validateAppend(game: Game, moves: Move*): Validation[Throwable, Seq[Move]] =
@@ -113,23 +120,40 @@ final case class Game private (
 
   def appendUnsafe(moves: Move*): Game = append(moves*).toTry.get
 
+  @targetName("appendUnsafeFromTuples")
+  def appendUnsafe(moves: (Symbol, Position)*): Game =
+    append(moves.map((symbol, position) => Move.of(symbol, position))*).toTry.get
+
   def append(moves: Move*): Either[Throwable, Game] = validateAppend(this, moves*).fold(
     err => Left(new RuntimeException(err.mkString(", "))),
     _.foldLeft[Either[Throwable, Game]](Right(this)) {
-      case (Right(game), move @ (symbol, position @ (x, y))) =>
+      case (Right(game), move @ Move(symbol, position @ (x, y), _)) =>
         Either.cond(
-          !game.moves.exists((_, pos) => pos == position),
+          !game.moves.exists { case Move(_, pos, _) => pos == position },
           game.copy(moves = game.moves :+ move),
           new RuntimeException(s"Can't add move $symbol to $x,$y because if would override existing one.")
         )
-      case (left, _)                                         => left
+      case (left, _)                                                => left
     }
   )
+
+  @targetName("appendFromTuples")
+  def append(symbolMoves: (Symbol, Position)*): Either[Throwable, Game] =
+    append(symbolMoves.map(Move.of)*)
+
+  @targetName("appendFromEmpty")
+  def append(symbolMoves: Seq[Move] = Seq.empty): Either[Throwable, Game] =
+    append(symbolMoves*)
 
   def appendZIO(moves: Move*): Task[Game] = ZIO.fromEither(append(moves*))
 
 object Game:
-  def make(gid: GID, playing: Symbol = defaultPlaying, size: Size = 3, moves: Array[Move] = Array.empty): Game =
+  def make(
+    gid: GID,
+    playing: Symbol = defaultPlaying,
+    size: Size = Size.default,
+    moves: Array[Move] = Array.empty
+  ): Game =
     apply(gid, playing, moves, size)
 
   val empty: Game = make(UUID.randomUUID())

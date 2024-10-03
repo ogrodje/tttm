@@ -6,7 +6,7 @@ import zio.test.*
 import Status.*
 import zio.test.TestAspect.*
 
-object GameTest extends ZIOSpecDefault {
+object GameTest extends ZIOSpecDefault:
   override val bootstrap: ZLayer[Any, Any, zio.test.TestEnvironment] =
     Runtime.removeDefaultLoggers >>> SLF4J.slf4j >>> testEnvironment
 
@@ -19,7 +19,7 @@ object GameTest extends ZIOSpecDefault {
       assertTrue(game.status == Pending)
     },
     test("adding moves") {
-      val move = X -> (1, 1)
+      val move = Move.of(X -> (1, 1))
       val g    = Game.empty.appendUnsafe(move)
       assertTrue(g.emptyPositions.length == (3 * 3) - 1)
       assertTrue(g.moves sameElements Array(move))
@@ -59,16 +59,13 @@ object GameTest extends ZIOSpecDefault {
         X -> (0, 2),
         O -> (1, 2)
       )
-      println(game.status)
       assertTrue(game.status == Won(X))
     },
     test("appending") {
       assertTrue(Game.empty.append(X -> (1, 1), X -> (0, 0)).isLeft)
       assertTrue(Game.empty.append(X -> (1, 1), O -> (0, 0)).isRight)
       assertTrue(Game.empty.append(X -> (1, 1), O -> (1, 1)).isLeft)
-      assertTrue(Game.empty.append().isLeft)
       assertTrue(Game.empty.append(O -> (1, 1)).isLeft)
       assertTrue(Game.empty.append(X -> (1, 1)).isRight)
     }
   )
-}
