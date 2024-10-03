@@ -12,3 +12,9 @@ players:
     author_url: https://github.com/matjaz
     repository_url: https://github.com/matjaz/tttm-randx
     endpoint_url: https://tttm-randx.matjaz.workers.dev/
+
+  - name: tttm-maxi
+    author: Matjaž Lipuš
+    tags: [ cloudflare-workers, javascript, minimax-strategy ]
+    author_url: https://github.com/matjaz
+    endpoint_url: https://tttm-maxi.matjaz.workers.dev
