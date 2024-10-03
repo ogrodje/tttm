@@ -1,5 +1,6 @@
 package si.ogrodje.tttm.v2
 
+import zio.json.*
 import zio.{Duration, Task, ZIO}
 import zio.prelude.{NonEmptySet, Validation}
 
@@ -25,10 +26,13 @@ type Size  = Int
 object Size:
   val default: Size = 3
 
+@jsonDiscriminator("type")
 enum Status:
   case Tide
   case Pending
   case Won(symbol: Symbol)
+object Status:
+  given eventJsonEncoder: JsonEncoder[Status] = DeriveJsonEncoder.gen[Status]
 
 final case class Game private (
   gid: GID,

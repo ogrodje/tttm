@@ -18,19 +18,19 @@ final class Gameplay private (
   private type Servers = NonEmptyList[PlayerServer]
   private def swapServers(servers: Servers): Servers = NonEmptyList(servers.last, servers.head)
 
-  private def mkMoveRequest(endpoint: ServerEndpoint, game: Game): Task[Request] = for
-    url         <- ZIO.fromEither(URL.decode(endpoint))
+  private def mkMoveRequest(playerServer: PlayerServer, game: Game): Task[Request] = for
     queryParams <- ZIO.attempt(GameEncoder.encode(game))
-    request      = Request.get(url).updatePath(_ => Path("/move")).setQueryParams(queryParams)
+    endpoint     = playerServer.serverEndpoint
+    request      = Request.get(url = endpoint).updatePath(_ ++ Path("/move")).setQueryParams(queryParams)
     _           <- reporter.logInfo(s"Requesting ${request.url.host}")
   yield request
 
   private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, Throwable, Move] = for
-    request              <- mkMoveRequest(server.serverEndpoint, game)
+    request              <- mkMoveRequest(server, game)
     (duration, response) <- client.request(request).timed
     move                 <- response.body.asString.flatMap(BodyParser.parse)
     _                    <- reporter.logInfo(s"Received response from ${request.url.host} in ${duration.toMillis}ms")
-  yield move
+  yield move.copy(duration = duration)
 
   private def handleGame(client: Client, servers: Servers)(
     game: Game
@@ -54,16 +54,12 @@ final class Gameplay private (
       game.appendZIO(move).flatMap(handleGame(client, servers))
     }
 
-  def play: ZIO[zio.Scope & Client, Throwable, (Game, Option[PlayerServer])] = for
-    client     <- ZIO.service[Client]
-    servers     = NonEmptyList(serverA, serverB)
-    result     <- processRequest(client, servers, Game.make(gid, size = size))
-    _          <- reporter.logInfo(s"Game completed. Status: ${result.status}, moves: ${result.moves.length}")
-    maybeWinner = result.status match
-                    case Won(`X`) => Some(serverA)
-                    case Won(`O`) => Some(serverB)
-                    case _        => None
-  yield result -> maybeWinner
+  def play: ZIO[zio.Scope & Client, Throwable, (Game, GameplayResult)] = for
+    client           <- ZIO.service[Client]
+    servers           = NonEmptyList(serverA, serverB)
+    (duration, game) <- processRequest(client, servers, Game.make(gid, size = size)).timed
+    _                <- reporter.logInfo(s"Game completed. Status: ${game.status}, moves: ${game.moves.length}")
+  yield game -> GameplayResult.fromGame(servers, duration, game)
 
 object Gameplay:
   def make(
@@ -77,7 +73,5 @@ object Gameplay:
     serverA,
     serverB,
     size,
-    maybeGameplayReporter.getOrElse(
-      CLIGameReporter.make(gid)
-    )
+    maybeGameplayReporter.getOrElse(CLIGameReporter.make(gid))
   )

@@ -8,9 +8,8 @@ import zio.{Task, ZIO}
 
 import scala.util.Random
 
+// Picks random empty field. No strategy. This follows the reference implementation.
 final class SimplePlayerServer private (port: Int) extends PlayerServer:
-
-  // Pick random empty field. No strategy.
   private val computeMove: Game => Either[String, (Symbol, Position)] = game =>
     game.status match
       case Pending =>
@@ -39,7 +38,7 @@ final class SimplePlayerServer private (port: Int) extends PlayerServer:
     )
   ).sandbox
 
-  override def serverEndpoint: ServerEndpoint = s"http://localhost:$port"
+  override def serverEndpoint: ServerEndpoint = URL.decode(s"http://localhost:$port").toTry.get
 
   def run: Task[Nothing] =
     logInfo(s"Booting server on port $port") *>

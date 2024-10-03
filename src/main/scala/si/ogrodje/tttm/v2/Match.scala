@@ -6,6 +6,7 @@ import zio.{Scope, ZIO}
 import zio.http.{Client, URL}
 import zio.stream.ZStream
 import zio.ZIO.logInfo
+import zio.json.*
 
 final case class PlayerResults(
   played: Long = 0,
@@ -18,14 +19,15 @@ object PlayerResults:
 
 object Match:
   private type NumberOfGames = Long
-  private type MatchResults  = Map[PlayerServer, PlayerResults]
+  private type MatchResults  = Map[PlayerServerID, PlayerResults]
 
   private def updateResults(
     acc: MatchResults,
-    serverA: PlayerServer,
-    serverB: PlayerServer,
-    maybeWinner: Option[PlayerServer]
+    serverA: PlayerServerID,
+    serverB: PlayerServerID,
+    gameplayResult: GameplayResult
   ): MatchResults =
+    val maybeWinner          = gameplayResult.maybeWinner
     val (resultsA, resultsB) = acc(serverA) -> acc(serverB)
 
     acc ++ Map(
@@ -58,7 +60,7 @@ object Match:
     concurrentProcesses: Int = 4,
     size: Size = Size.default,
     maybeGameplayReporter: Option[GameplayReporter] = None
-  ): ZIO[Scope & Client, Throwable, Map[PlayerServer, PlayerResults]] =
+  ): ZIO[Scope & Client, Throwable, Map[PlayerServerID, PlayerResults]] =
     val servers @ (serverA, serverB) =
       ExternalPlayerServer.fromURL(serverAUrl) -> ExternalPlayerServer.fromURL(serverBUrl)
 
@@ -76,10 +78,15 @@ object Match:
           .tap(r => logInfo(s"Completed game n. ${n}"))
       }
       .runFold(
-        Map[PlayerServer, PlayerResults](
-          serverA -> PlayerResults.empty,
-          serverB -> PlayerResults.empty
+        Map[PlayerServerID, PlayerResults](
+          serverA.id -> PlayerResults.empty,
+          serverB.id -> PlayerResults.empty
         )
-      ) { case (acc, (result, maybeWinner)) =>
-        updateResults(acc, serverA, serverB, maybeWinner)
+      ) { case (acc, (result, gameplayResult)) =>
+        println(s"Result: ${gameplayResult}")
+        
+        val gr = gameplayResult.toJson
+        println(gr)
+
+        updateResults(acc, serverA.id, serverB.id, gameplayResult)
       }
