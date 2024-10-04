@@ -11,8 +11,12 @@ final case class MatchResult(
   played: Long = 0,
   won: Long = 0,
   lost: Long = 0,
-  tie: Long = 0
-)
+  tie: Long = 0,
+  responseAverage: Double = -1,
+  responseMedian: Double = -1,
+  responseP99: Double = -1
+) extends ServerMeasurements
+
 object MatchResult:
   val empty: MatchResult                                 = apply()
   given matchResultJsonEncoder: JsonEncoder[MatchResult] = DeriveJsonEncoder.gen[MatchResult]
@@ -63,28 +67,66 @@ object Match:
   ): ZIO[Scope & Client, Throwable, Map[PlayerServerID, MatchResult]] =
     val servers @ (serverA, serverB) =
       ExternalPlayerServer.fromURL(serverAUrl) -> ExternalPlayerServer.fromURL(serverBUrl)
+    val serverIDs @ (serverAID, serverBID) = (serverA.id, serverB.id)
 
-    ZStream
+    val aggregated: ZIO[
+      Scope & Client,
+      Throwable,
+      (Map[PlayerServerID, MatchResult], Array[GameplayResult], (Array[Move], Array[Move]))
+    ] = ZStream
       .range(0, numberOfGames.toInt)
       .zipWithIndex
-      .map {
-        case (n, i) if i % 2 == 0 => n -> (serverA -> serverB)
-        case (n, _) => n -> (serverB -> serverA)
-      }
+      .map { case (n, i) => (n, if i % 2 == 0 then (serverA, serverB) else (serverB, serverA)) }
       .mapZIOParUnordered(concurrentProcesses) { case (n, (serverA, serverB)) =>
         Gameplay
           .make(serverA, serverB, size, maybeGameplayReporter = maybeGameplayReporter)
           .play
-          .tap(r => logInfo(s"Completed game n. ${n}"))
+          .map(result => (serverA, serverB) -> result)
+          .tap(r => logInfo(s"Completed game n. ${n}; moves: ${r._2._1.moves.length}"))
       }
       .runFold(
-        Map[PlayerServerID, MatchResult](
-          serverA.id -> MatchResult.empty,
-          serverB.id -> MatchResult.empty
+        (
+          Map[PlayerServerID, MatchResult](
+            serverA.id -> MatchResult.empty,
+            serverB.id -> MatchResult.empty
+          ),
+          Array.empty[GameplayResult],
+          (Array.empty[Move], Array.empty[Move])
         )
-      ) { case (acc, (result, gameplayResult)) =>
-        val gr = gameplayResult.toJson
-        println(s"\nGR:\n${gr}")
+      ) {
+        case (
+              (acc, gameplayResults, (movesA, movesB)),
+              ((localServerA, localServerB), (game: Game, gameplayResult: GameplayResult))
+            ) =>
+          val newMovesA =
+            if serverAID == localServerA.id then game.moves.filter(_.symbol == X)
+            else game.moves.filter(_.symbol == O)
 
-        updateResults(acc, serverA.id, serverB.id, gameplayResult)
+          val newMovesB =
+            if serverBID == localServerB.id then game.moves.filter(_.symbol == O)
+            else game.moves.filter(_.symbol == X)
+
+          (
+            updateResults(acc, localServerA.id, localServerB.id, gameplayResult),
+            gameplayResults ++ Seq(gameplayResult),
+            (movesA ++ newMovesA, movesB ++ newMovesB)
+          )
       }
+
+    aggregated.map { case (resultsMap, gameplayResults, (movesA, movesB)) =>
+      println(gameplayResults.map(_.toJson).mkString("\n"))
+
+      // val serverAMeasurements = gameplayResults.map(_.serverA)
+      // val serverBMeasurements = gameplayResults.map(_.serverB)
+
+      // println(s"Moves A => ${movesA.length}")
+      // println(s"Moves B => ${movesB.length}")
+
+      resultsMap.map { case (playerServerID, matchResult: MatchResult) =>
+        playerServerID -> matchResult.copy(
+          responseAverage = -1,
+          responseMedian = -1,
+          responseP99 = -1
+        )
+      }
+    }

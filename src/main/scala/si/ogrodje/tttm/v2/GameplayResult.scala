@@ -34,12 +34,17 @@ object GameplayResult:
       serverB = ServerResult.fromMoves(game.moves.filter(_.symbol == O))
     )
 
+trait ServerMeasurements:
+  def responseAverage: Double
+  def responseMedian: Double
+  def responseP99: Double
+
 @jsonHintNames(SnakeCase)
 final case class ServerResult(
   @jsonField("response_average_ms") responseAverage: Double,
   @jsonField("response_median_ms") responseMedian: Double,
   @jsonField("response_p99_ms") responseP99: Double
-)
+) extends ServerMeasurements
 
 object ServerResult:
   implicit val schema: Schema[ServerResult]                = DeriveSchema.gen
