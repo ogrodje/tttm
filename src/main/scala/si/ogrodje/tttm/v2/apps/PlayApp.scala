@@ -1,11 +1,12 @@
 package si.ogrodje.tttm.v2.apps
 
-import si.ogrodje.tttm.v2.{ExternalPlayerServer, Gameplay, Match, PlayerServer}
+import si.ogrodje.tttm.v2.{ExternalPlayerServer, Gameplay, Match, MatchResult, PlayerServer}
 import zio.ZIO.logInfo
 import zio.cli.*
 import zio.http.{Client, URL}
 import zio.logging.backend.SLF4J
 import zio.*
+import zio.json.*
 import zio.stream.{Stream, ZStream}
 import zio.Console.printLine
 
@@ -47,9 +48,12 @@ object PlayApp extends ZIOCliDefault:
     numberOfGames: BigInt = BigInt(1),
     size: BigInt = 3
   )(serverAUrl: URL, serverBUrl: URL) = for
-    _   <- logInfo(s"Server A: $serverAUrl, server B: $serverBUrl, size: $size, should score: $shouldScore")
+    _      <- logInfo(s"Server A: $serverAUrl, server B: $serverBUrl, size: $size, should score: $shouldScore")
+    serverA = ExternalPlayerServer.fromURL(serverAUrl)
+    serverB = ExternalPlayerServer.fromURL(serverBUrl)
+
     out <- Match
-             .playGames(serverAUrl, serverBUrl, numberOfGames.toLong, concurrentProcesses = 3)
+             .playGames(serverA, serverB, numberOfGames.toLong, concurrentProcesses = 3)
              .provide(Client.default.and(Scope.default))
-    _   <- printLine(out)
+    _   <- printLine(MatchResult.matchResultJsonEncoder.encodeJson(out, Some(2)))
   yield ()

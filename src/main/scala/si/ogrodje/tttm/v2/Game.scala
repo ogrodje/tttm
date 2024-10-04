@@ -16,8 +16,18 @@ val defaultPlaying: Symbol            = X
 
 type GID      = UUID
 type Position = (Int, Int)
-final case class Move(symbol: Symbol, position: Position, duration: Duration = Duration.Zero)
+
+@jsonHintNames(SnakeCase)
+final case class Move(
+  symbol: Symbol,
+  position: Position,
+  @jsonField("duration_ms") duration: Duration = Duration.Zero,
+  @jsonField("player_server_id") playerServerID: Option[PlayerServerID] = None
+)
 object Move:
+  given durationJsonEncoder: JsonEncoder[Duration] = JsonEncoder[Double].contramap(_.toMillis.toDouble)
+  given gameJsonEncoder: JsonEncoder[Move]         = DeriveJsonEncoder.gen[Move]
+
   def of(symbol: Symbol, position: Position): Move = Move(symbol, position)
   def of(tpl: (Symbol, Position)): Move            = Move(tpl._1, tpl._2)
 
@@ -34,15 +44,18 @@ enum Status:
 object Status:
   given eventJsonEncoder: JsonEncoder[Status] = DeriveJsonEncoder.gen[Status]
 
+@jsonHintNames(SnakeCase)
 final case class Game private (
   gid: GID,
+  @jsonField("player_server_x_id") playerServerIDX: PlayerServerID,
+  @jsonField("player_server_o_id") playerServerIDO: PlayerServerID,
   playing: Symbol = defaultPlaying,
   moves: Moves = Array.empty[Move],
   size: Size = 3
 ):
   import Status.*
   private def symbolAt: Position => Option[Symbol] = (x, y) =>
-    moves.find { case Move(_, (px, py), _) => px == x && py == y }.map(_._1)
+    moves.find { case Move(_, (px, py), _, _) => px == x && py == y }.map(_._1)
 
   private def listOfSymbols: Symbol => List[Option[Symbol]] =
     symbol => (0 until size).toList.map(_ => Some(symbol))
@@ -96,7 +109,7 @@ final case class Game private (
 
   private def validateSymbols(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
     Validation.fromPredicateWith(new IllegalArgumentException("Only X or O symbols are allowed"))(moves)(
-      _.forall { case Move(symbol, _, _) => validSymbols.contains(symbol) }
+      _.forall { case Move(symbol, _, _, _) => validSymbols.contains(symbol) }
     )
 
   private def validSequence(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
@@ -104,16 +117,16 @@ final case class Game private (
     else
       Validation
         .fromPredicate(moves)(_.sliding(2).forall {
-          case Seq(Move(`X`, _, _), Move(`O`, _, _)) => true
-          case Seq(Move(`O`, _, _), Move(`X`, _, _)) => true
-          case Seq(_, _)                             => false
-          case _                                     => true
+          case Seq(Move(`X`, _, _, _), Move(`O`, _, _, _)) => true
+          case Seq(Move(`O`, _, _, _), Move(`X`, _, _, _)) => true
+          case Seq(_, _)                                   => false
+          case _                                           => true
         })
         .mapError(_ => new RuntimeException(s"Invalid sequence of symbols: ${moves.map(_._1).mkString(", ")}"))
 
   private def validateFirstMove(game: Game, moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
     Validation.fromPredicateWith(new RuntimeException("First move needs to be X"))((game.moves ++ moves).toSeq)(
-      _.headOption.exists { case Move(symbol, _, _) => symbol == X }
+      _.headOption.exists { case Move(symbol, _, _, _) => symbol == X }
     )
 
   private def validateAppend(game: Game, moves: Move*): Validation[Throwable, Seq[Move]] =
@@ -131,13 +144,13 @@ final case class Game private (
   def append(moves: Move*): Either[Throwable, Game] = validateAppend(this, moves*).fold(
     err => Left(new RuntimeException(err.mkString(", "))),
     _.foldLeft[Either[Throwable, Game]](Right(this)) {
-      case (Right(game), move @ Move(symbol, position @ (x, y), _)) =>
+      case (Right(game), move @ Move(symbol, position @ (x, y), _, _)) =>
         Either.cond(
-          !game.moves.exists { case Move(_, pos, _) => pos == position },
+          !game.moves.exists { case Move(_, pos, _, _) => pos == position },
           game.copy(moves = game.moves :+ move),
           new RuntimeException(s"Can't add move $symbol to $x,$y because if would override existing one.")
         )
-      case (left, _)                                                => left
+      case (left, _)                                                   => left
     }
   )
 
@@ -152,12 +165,16 @@ final case class Game private (
   def appendZIO(moves: Move*): Task[Game] = ZIO.fromEither(append(moves*))
 
 object Game:
+  given gameJsonEncoder: JsonEncoder[Game] = DeriveJsonEncoder.gen[Game]
+
   def make(
     gid: GID,
+    playerServerIDX: PlayerServerID,
+    playerServerIDO: PlayerServerID,
     playing: Symbol = defaultPlaying,
     size: Size = Size.default,
     moves: Array[Move] = Array.empty
   ): Game =
-    apply(gid, playing, moves, size)
+    apply(gid, playerServerIDX, playerServerIDO, playing, moves, size)
 
-  val empty: Game = make(UUID.randomUUID())
+  val empty: Game = make(UUID.randomUUID(), playerServerIDX = "pid-" + X, playerServerIDO = "pid-" + O)

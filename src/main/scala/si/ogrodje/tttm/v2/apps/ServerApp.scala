@@ -1,6 +1,6 @@
 package si.ogrodje.tttm.v2.apps
 
-import si.ogrodje.tttm.v2.{Match, QueryParamOps}
+import si.ogrodje.tttm.v2.{ExternalPlayerServer, Match, QueryParamOps}
 import QueryParamOps.*
 import zio.*
 import zio.http.*
@@ -32,12 +32,17 @@ object ServerApp extends ZIOAppDefault:
       channel.receiveAll {
         case UserEventTriggered(UserEvent.HandshakeComplete) =>
           for
-            _      <-
+            _                 <-
               channel.send(
                 Read(WebSocketFrame.text(s"Greetings lets play the match between ${serverAUrl} and ${serverBUrl}!"))
               )
-            _      <- logInfo(s"Starting game between $serverAUrl and $serverBUrl w/ $numberOfGames, size: $size")
-            result <- Match.playGames(serverAUrl, serverBUrl, numberOfGames, concurrentProcesses = 3)
+            _                 <- logInfo(s"Starting game between $serverAUrl and $serverBUrl w/ $numberOfGames, size: $size")
+            (serverA, serverB) = (
+                                   ExternalPlayerServer.fromURL(serverAUrl),
+                                   ExternalPlayerServer.fromURL(serverAUrl)
+                                 )
+            
+            result <- Match.playGames(serverA, serverB, numberOfGames, concurrentProcesses = 3)
             _      <- logInfo("Match completed")
 
             _ <- channel.send(

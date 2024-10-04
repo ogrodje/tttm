@@ -4,6 +4,7 @@ import si.ogrodje.tttm.v2
 import si.ogrodje.tttm.v2.Status.*
 import zio.*
 import zio.http.*
+import zio.json.*
 import zio.prelude.NonEmptyList
 
 import java.util.UUID
@@ -30,7 +31,7 @@ final class Gameplay private (
     (duration, response) <- client.request(request).timed
     move                 <- response.body.asString.flatMap(BodyParser.parse)
     _                    <- reporter.logInfo(s"Received response from ${request.url.host} in ${duration.toMillis}ms")
-  yield move.copy(duration = duration)
+  yield move.copy(duration = duration, playerServerID = Some(server.id))
 
   private def handleGame(client: Client, servers: Servers)(
     game: Game
@@ -42,23 +43,26 @@ final class Gameplay private (
           servers = swapServers(servers),
           game = game.withSwitchPlaying
         )
-      case Tie        => reporter.logInfo("Tie").as(game)
+      case Tie         => reporter.logInfo("Tie").as(game)
       case Won(symbol) => reporter.logInfo(s"Won by $symbol").as(game)
 
   private def processRequest(
     client: Client,
     servers: Servers,
     game: Game
-  ): ZIO[Scope, Throwable, Game] =
-    requestMove(client, servers.head, game).flatMap { move =>
-      game.appendZIO(move).flatMap(handleGame(client, servers))
-    }
+  ): ZIO[Scope, Throwable, Game] = for
+    move        <- requestMove(client, servers.head, game)
+    mutatedGame <- game.appendZIO(move)
+    game        <- handleGame(client, servers)(mutatedGame)
+  yield game
 
   def play: ZIO[zio.Scope & Client, Throwable, (Game, GameplayResult)] = for
     client           <- ZIO.service[Client]
     servers           = NonEmptyList(serverA, serverB)
-    (duration, game) <- processRequest(client, servers, Game.make(gid, size = size)).timed
+    game              = Game.make(gid, playerServerIDX = serverA.id, playerServerIDO = serverB.id, size = size)
+    (duration, game) <- processRequest(client, servers, game).timed
     _                <- reporter.logInfo(s"Game completed. Status: ${game.status}, moves: ${game.moves.length}")
+    _                <- Console.printLine(game.toJson)
   yield game -> GameplayResult.fromGame(servers, duration, game)
 
 object Gameplay:

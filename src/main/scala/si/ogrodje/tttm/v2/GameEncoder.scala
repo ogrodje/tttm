@@ -5,7 +5,7 @@ import zio.http.QueryParams
 
 object GameEncoder:
   private def encodedMoves(game: Game): String =
-    game.listMoves.map { case Move(symbol, (x, y), _) => s"$symbol-$x-$y" }.mkString("_")
+    game.listMoves.map { case Move(symbol, (x, y), _, _) => s"$symbol-$x-$y" }.mkString("_")
 
   def encode(game: Game): QueryParams =
     QueryParams.apply(
