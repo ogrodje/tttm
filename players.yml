@@ -25,3 +25,10 @@ players:
     author_url: https://github.com/perkzen
     repository_url: https://github.com/perkzen/tttm-rango
     endpoint_url: https://rango.perkz.cloud/
+
+  - name: tttm-mango
+  - author: Domen Perko
+  - tags: [ go, minmax-strategy ]
+  - author_url: https://github.com/perkzen
+  - repository_url: https://github.com/perkzen/tttm-mango
+  - endpoint_url: https://mango.perkz.cloud/
