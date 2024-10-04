@@ -23,18 +23,20 @@ The game server will pass the following URL `query parameters` to the player ser
 
 - `gid` - `UUID` that represents the given game ID.
   - It can be used on player servers to stick together individual games.
-- `size` - A number - size - of [tic-tac-toe][ttt] grid. By default, set to `3`
+- `size` - A number - size - of [tic-tac-toe][ttt] grid.
+  - By default, the size is set to `3`, representing the grid of size `3x3`. To win, one has to have 3 symbols in either row/column/diagonal.
+  - ⚠️ The `tttm` engine currently only supports a size of 3. We will expand this to `5x5` and `7x7`, where one must put four symbols to win.
 - `playing` - A symbol that the player server needs to play. Possible values are `X` or `O`
 - `moves` - A string that represents the previous moves.
-  - Moves are separated by `-` and positions by `_`
-  - Example: `X_1_1-O_0_0` means that the `X` symbol was at location `1,1` (centre of grid) and `O` at `0,0` (top-left corner of the grid)
+  - Moves are separated by `_` and positions by `-`
+  - Example: `X-1-1_O-0-0` means that the `X` symbol was at location `1,1` (centre of grid) and `O` at `0,0` (top-left corner of the grid)
 
 ### Body
 
 The content of the successful response (HTTP status 200) needs to be a string that should have the following structure:
 
 ```
-Move:X_2_2
+Move:X-2-2
 ```
 
 The player server replied by placing the symbol `X` in position `2,2` in the grid—in this case, the very bottom right.

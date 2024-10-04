@@ -34,7 +34,13 @@ object Dependencies {
     "dev.zio" %% "zio-logging-slf4j2"
   ).map(_ % Versions.zioLogging) ++ Seq(
     "ch.qos.logback" % "logback-classic" % "1.5.7"
-  )
+  ) ++ Seq(
+    "dev.zio" %% "zio-schema",
+    "dev.zio" %% "zio-schema-json",
+    "dev.zio" %% "zio-schema-zio-test",
+    "dev.zio" %% "zio-schema-derivation"
+    // "org.scala-lang" % "scala-reflect"  % scalaVersion.value % "provided" // Needed ?
+  ).map(_ % "1.5.0")
 
   lazy val logging: Modules = Seq(
     "ch.qos.logback" % "logback-classic" % "1.5.6"
@@ -44,11 +50,6 @@ object Dependencies {
   ).map(_ % Versions.log4cats) ++ Seq(
     "io.sentry" % "sentry-logback" % Versions.sentryLogback
   )
-
-  lazy val testingDeps: Modules = Seq(
-    "org.scalatest" %% "scalatest",
-    "org.scalatest" %% "scalatest-flatspec"
-  ).map(_ % Versions.scalaTest % "test")
 
   lazy val scalaTags: Modules = Seq(
     "com.lihaoyi" %% "scalatags" % "0.13.1"

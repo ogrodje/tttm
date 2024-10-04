@@ -15,7 +15,7 @@ object GameMasterApp extends ZIOAppDefault:
     // serverFib <- ZIO.raceAll(serverA.run, serverB.run :: Nil).fork
 
     serverA    = SimplePlayerServer.make(6776)
-    serverB    = ExternalPlayerServer.fromString("http://127.0.0.1:5000")
+    serverB   <- ExternalPlayerServer.fromString("http://127.0.0.1:5000")
     serverFib <- serverA.run.fork
 
     gameplayFib <- (ZIO.sleep(3.seconds) *>

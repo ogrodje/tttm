@@ -18,3 +18,10 @@ players:
     tags: [ cloudflare-workers, javascript, minimax-strategy ]
     author_url: https://github.com/matjaz
     endpoint_url: https://tttm-maxi.matjaz.workers.dev
+
+  - name: tttm-rango
+    author: Domen Perko
+    tags: [ go, random-strategy ]
+    author_url: https://github.com/perkzen
+    repository_url: https://github.com/perkzen/tttm-rango
+    endpoint_url: https://rango.perkz.cloud/

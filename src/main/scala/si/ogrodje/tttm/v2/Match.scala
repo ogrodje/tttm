@@ -1,31 +1,33 @@
 package si.ogrodje.tttm.v2
 
-import si.ogrodje.tttm.v2.apps.PlayApp.NumberOfGames
-import zio.Console.printLine
-import zio.{Scope, ZIO}
-import zio.http.{Client, URL}
-import zio.stream.ZStream
 import zio.ZIO.logInfo
+import zio.http.{Client, URL}
+import zio.json.*
+import zio.stream.ZStream
+import zio.{Scope, ZIO}
 
-final case class PlayerResults(
+@jsonHintNames(SnakeCase)
+final case class MatchResult(
   played: Long = 0,
   won: Long = 0,
   lost: Long = 0,
-  tide: Long = 0
+  tie: Long = 0
 )
-object PlayerResults:
-  val empty: PlayerResults = PlayerResults(0, 0, 0, 0)
+object MatchResult:
+  val empty: MatchResult                                 = apply()
+  given matchResultJsonEncoder: JsonEncoder[MatchResult] = DeriveJsonEncoder.gen[MatchResult]
 
 object Match:
   private type NumberOfGames = Long
-  private type MatchResults  = Map[PlayerServer, PlayerResults]
+  private type MatchResults  = Map[PlayerServerID, MatchResult]
 
   private def updateResults(
     acc: MatchResults,
-    serverA: PlayerServer,
-    serverB: PlayerServer,
-    maybeWinner: Option[PlayerServer]
+    serverA: PlayerServerID,
+    serverB: PlayerServerID,
+    gameplayResult: GameplayResult
   ): MatchResults =
+    val maybeWinner          = gameplayResult.maybeWinner
     val (resultsA, resultsB) = acc(serverA) -> acc(serverB)
 
     acc ++ Map(
@@ -37,7 +39,7 @@ object Match:
         lost = maybeWinner
           .flatMap(s => Option.when(s == serverB)(resultsA.lost + 1))
           .getOrElse(resultsA.lost),
-        tide = maybeWinner.fold(resultsA.tide + 1)(_ => resultsA.tide)
+        tie = maybeWinner.fold(resultsA.tie + 1)(_ => resultsA.tie)
       ),
       serverB -> resultsB.copy(
         played = resultsB.played + 1,
@@ -47,7 +49,7 @@ object Match:
         lost = maybeWinner
           .flatMap(s => Option.when(s == serverA)(resultsB.lost + 1))
           .getOrElse(resultsB.lost),
-        tide = maybeWinner.fold(resultsB.tide + 1)(_ => resultsB.tide)
+        tie = maybeWinner.fold(resultsB.tie + 1)(_ => resultsB.tie)
       )
     )
 
@@ -55,8 +57,10 @@ object Match:
     serverAUrl: URL,
     serverBUrl: URL,
     numberOfGames: NumberOfGames,
-    concurrentProcesses: Int = 4
-  ): ZIO[Scope & Client, Throwable, Map[PlayerServer, PlayerResults]] =
+    concurrentProcesses: Int = 4,
+    size: Size = Size.default,
+    maybeGameplayReporter: Option[GameplayReporter] = None
+  ): ZIO[Scope & Client, Throwable, Map[PlayerServerID, MatchResult]] =
     val servers @ (serverA, serverB) =
       ExternalPlayerServer.fromURL(serverAUrl) -> ExternalPlayerServer.fromURL(serverBUrl)
 
@@ -68,13 +72,19 @@ object Match:
         case (n, _) => n -> (serverB -> serverA)
       }
       .mapZIOParUnordered(concurrentProcesses) { case (n, (serverA, serverB)) =>
-        Gameplay.make(serverA, serverB).play.tap(r => logInfo(s"Completed game n. ${n}"))
+        Gameplay
+          .make(serverA, serverB, size, maybeGameplayReporter = maybeGameplayReporter)
+          .play
+          .tap(r => logInfo(s"Completed game n. ${n}"))
       }
       .runFold(
-        Map[PlayerServer, PlayerResults](
-          serverA -> PlayerResults.empty,
-          serverB -> PlayerResults.empty
+        Map[PlayerServerID, MatchResult](
+          serverA.id -> MatchResult.empty,
+          serverB.id -> MatchResult.empty
         )
-      ) { case (acc, (result, maybeWinner)) =>
-        updateResults(acc, serverA, serverB, maybeWinner)
+      ) { case (acc, (result, gameplayResult)) =>
+        val gr = gameplayResult.toJson
+        println(s"\nGR:\n${gr}")
+
+        updateResults(acc, serverA.id, serverB.id, gameplayResult)
       }
