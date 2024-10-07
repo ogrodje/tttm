@@ -51,9 +51,8 @@ object PlayApp extends ZIOCliDefault:
     _      <- logInfo(s"Server A: $serverAUrl, server B: $serverBUrl, size: $size, should score: $shouldScore")
     serverA = ExternalPlayerServer.fromURL(serverAUrl)
     serverB = ExternalPlayerServer.fromURL(serverBUrl)
-
-    out <- Match
-             .playGames(serverA, serverB, numberOfGames.toLong, concurrentProcesses = 3)
-             .provide(Client.default.and(Scope.default))
-    _   <- printLine(MatchResult.matchResultJsonEncoder.encodeJson(out, Some(2)))
+    out    <- Match
+                .playGames(serverA, serverB, numberOfGames.toLong, concurrentProcesses = 3)
+                .provide(Client.default.and(Scope.default))
+    _      <- printLine(MatchResult.matchResultJsonEncoder.encodeJson(out, Some(2)))
   yield ()

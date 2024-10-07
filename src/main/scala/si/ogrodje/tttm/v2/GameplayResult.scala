@@ -36,13 +36,6 @@ object GameplayResult:
       moves = game.moves.toList
     )
 
-trait ServerMeasurements:
-  def responseAverage: Double
-  def responseMedian: Double
-  def responseP99: Double
-  def responseMax: Double
-  def responseMin: Double
-
 @jsonHintNames(SnakeCase)
 final case class ServerResult(
   @jsonField("response_average_ms") responseAverage: Double,
@@ -55,29 +48,4 @@ final case class ServerResult(
 object ServerResult:
   implicit val schema: Schema[ServerResult]                = DeriveSchema.gen
   given serverResultJsonEncoder: JsonEncoder[ServerResult] = DeriveJsonEncoder.gen[ServerResult]
-
-  def fromMoves(moves: Array[Move]): ServerResult =
-    val measurements: Array[Double] = moves.map(_.duration.toMillis.toDouble)
-    if measurements.isEmpty then throw new IllegalArgumentException("Moves array cannot be empty")
-    val average                     = measurements.sum / measurements.length.toDouble
-
-    // Sort array for median and p99 calculations
-    val sorted = measurements.sorted
-
-    // Median calculation
-    val median = if sorted.length % 2 == 0 then
-      val mid = sorted.length / 2
-      (sorted(mid - 1) + sorted(mid)) / 2
-    else sorted(sorted.length / 2)
-
-    // P99 calculation
-    val p99Index = math.ceil(measurements.length * 0.99).toInt - 1
-    val p99      = sorted(p99Index)
-
-    ServerResult(
-      responseAverage = average,
-      responseMedian = median,
-      responseP99 = p99,
-      responseMin = measurements.min,
-      responseMax = measurements.max
-    )
+  def fromMoves(moves: Array[Move]): ServerResult          = ServerMeasurements.fromMoves(moves)(ServerResult.apply)

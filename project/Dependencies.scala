@@ -43,7 +43,9 @@ object Dependencies {
   ).map(_ % "1.5.0") ++ Seq(
     "dev.zio" %% "zio-metrics-connectors",
     "dev.zio" %% "zio-metrics-connectors-prometheus"
-  ).map(_ % "2.3.1")
+  ).map(_ % "2.3.1") ++ Seq(
+    "dev.zio" %% "zio-json-yaml" % "0.7.3"
+  )
 
   lazy val logging: Modules = Seq(
     "ch.qos.logback" % "logback-classic" % "1.5.6"
