@@ -26,9 +26,16 @@ players:
     repository_url: https://github.com/perkzen/tttm-rango
     endpoint_url: https://rango.perkz.cloud/
 
+  - name: p-tick-tack
+    author: Primož Zagoričnik
+    tags: [ cloudflare-workers, javascript, ai ]
+    author_url: https://github.com/pzagor2
+    repository_url: https://github.com/pzagor2/p-tick-tack
+    endpoint_url: https://tttm-tic-tac-toe.pzagor2.workers.dev/
+
   - name: tttm-mango
-  - author: Domen Perko
-  - tags: [ go, minmax-strategy ]
-  - author_url: https://github.com/perkzen
-  - repository_url: https://github.com/perkzen/tttm-mango
-  - endpoint_url: https://mango.perkz.cloud/
+    author: Domen Perko
+    tags: [ go, minmax-strategy ]
+    author_url: https://github.com/perkzen
+    repository_url: https://github.com/perkzen/tttm-mango
+    endpoint_url: https://mango.perkz.cloud/
