@@ -6,14 +6,14 @@ import zio.logging.backend.SLF4J
 import zio.test.*
 import java.util.UUID
 
-object SerdeTest extends ZIOSpecDefault {
+object SerdeTest extends ZIOSpecDefault:
   override val bootstrap: ZLayer[Any, Any, zio.test.TestEnvironment] =
     Runtime.removeDefaultLoggers >>> SLF4J.slf4j >>> testEnvironment
 
   def spec = suite("SerdeTest")(
     test("encoding empty game") {
       val gid  = UUID.randomUUID()
-      val game = Game.make(gid)
+      val game = Game.make(gid, playerServerIDX = "x", playerServerIDO = "o")
 
       assertTrue(
         GameEncoder.encode(game).map == Map[String, Chunk[String]](
@@ -27,7 +27,7 @@ object SerdeTest extends ZIOSpecDefault {
     test("encoding non-empty game") {
       val gid  = UUID.randomUUID()
       val game = Game
-        .make(gid)
+        .make(gid, playerServerIDX = "x", playerServerIDO = "o")
         .appendUnsafe(
           X -> (1, 1),
           O -> (0, 0),
@@ -46,7 +46,7 @@ object SerdeTest extends ZIOSpecDefault {
     test("encoding-decoding") {
       val gid  = UUID.randomUUID()
       val game = Game
-        .make(gid)
+        .make(gid, playerServerIDX = "x", playerServerIDO = "o")
         .appendUnsafe(
           X -> (1, 1),
           O -> (0, 0),
@@ -60,14 +60,13 @@ object SerdeTest extends ZIOSpecDefault {
         encodedGame2 <- ZIO.succeed(GameEncoder.encode(decodedGame))
 
         withMove <- ZIO.succeed(
-          GameEncoder.encode(
-            decodedGame.appendUnsafe(X -> (0, 1)).withSwitchPlaying
-          )
-        )
+                      GameEncoder.encode(
+                        decodedGame.appendUnsafe(X -> (0, 1)).withSwitchPlaying
+                      )
+                    )
       yield
         assertTrue(encodedGame == encodedGame2)
         assertTrue(withMove.map("moves") == Chunk("X-1-1_O-0-0_X-2-2_O-0-2_X-0-1"))
         assertTrue(withMove.map("playing") == Chunk("O"))
     }
   )
-}

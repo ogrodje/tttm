@@ -1,10 +1,10 @@
 package si.ogrodje.tttm.v2
 
+import zio.*
 import zio.ZIO.logInfo
-import zio.http.{Client, URL}
+import zio.http.Client
 import zio.json.*
 import zio.stream.ZStream
-import zio.{Scope, ZIO}
 
 @jsonHintNames(SnakeCase)
 final case class MatchPlayerResult(
@@ -38,38 +38,6 @@ object Match:
   private type NumberOfGames = Long
   private type MatchResults  = Map[PlayerServerID, MatchPlayerResult]
 
-  private def updateResults(
-    acc: MatchResults,
-    serverA: PlayerServerID,
-    serverB: PlayerServerID,
-    gameplayResult: GameplayResult
-  ): MatchResults =
-    val maybeWinner          = gameplayResult.maybeWinner
-    val (resultsA, resultsB) = acc(serverA) -> acc(serverB)
-
-    acc ++ Map(
-      serverA -> resultsA.copy(
-        played = resultsA.played + 1,
-        won = maybeWinner
-          .flatMap(s => Option.when(s == serverA)(resultsA.won + 1))
-          .getOrElse(resultsA.won),
-        lost = maybeWinner
-          .flatMap(s => Option.when(s == serverB)(resultsA.lost + 1))
-          .getOrElse(resultsA.lost),
-        tie = maybeWinner.fold(resultsA.tie + 1)(_ => resultsA.tie)
-      ),
-      serverB -> resultsB.copy(
-        played = resultsB.played + 1,
-        won = maybeWinner
-          .flatMap(s => Option.when(s == serverB)(resultsB.won + 1))
-          .getOrElse(resultsB.won),
-        lost = maybeWinner
-          .flatMap(s => Option.when(s == serverA)(resultsB.lost + 1))
-          .getOrElse(resultsB.lost),
-        tie = maybeWinner.fold(resultsB.tie + 1)(_ => resultsB.tie)
-      )
-    )
-
   def playGames(
     serverA: PlayerServer,
     serverB: PlayerServer,
@@ -77,7 +45,7 @@ object Match:
     concurrentProcesses: Int = 4,
     size: Size = Size.default,
     maybeGameplayReporter: Option[GameplayReporter] = None
-  ) =
+  ): ZIO[Scope & Client, Throwable, MatchResult] =
     val serverIDS = (serverA.id, serverB.id)
 
     val matchStream =

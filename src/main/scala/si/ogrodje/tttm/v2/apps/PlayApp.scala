@@ -49,8 +49,8 @@ object PlayApp extends ZIOCliDefault:
     size: BigInt = 3
   )(serverAUrl: URL, serverBUrl: URL) = for
     _      <- logInfo(s"Server A: $serverAUrl, server B: $serverBUrl, size: $size, should score: $shouldScore")
-    serverA = ExternalPlayerServer.fromURL(serverAUrl)
-    serverB = ExternalPlayerServer.fromURL(serverBUrl)
+    serverA = ExternalPlayerServer.unsafeFromURL(serverAUrl)
+    serverB = ExternalPlayerServer.unsafeFromURL(serverBUrl)
     out    <- Match
                 .playGames(serverA, serverB, numberOfGames.toLong, concurrentProcesses = 3)
                 .provide(Client.default.and(Scope.default))

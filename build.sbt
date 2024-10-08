@@ -11,7 +11,7 @@ lazy val root = (project in file("."))
   .enablePlugins(JavaServerAppPackaging, DockerPlugin)
   .settings(name := "tttm")
   .settings(
-    Compile / mainClass := Some("si.ogrodje.tttm.GameServerApp"),
+    Compile / mainClass := Some("si.ogrodje.tttm.v2.apps.ServerApp"),
     libraryDependencies ++= zio,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     scalacOptions ++= Seq(
@@ -21,7 +21,8 @@ lazy val root = (project in file("."))
       "-feature",
       "-unchecked",
       "-Yretain-trees",
-      "-Xmax-inlines:100"
+      "-Xmax-inlines:100",
+      "-language:implicitConversions"
     )
   )
   .settings(
@@ -55,7 +56,7 @@ lazy val root = (project in file("."))
           Cmd("LABEL", "maintainer Oto Brglez <otobrglez@gmail.com>"),
           Cmd("LABEL", "org.opencontainers.image.url https://github.com/ogrodje/tttm"),
           Cmd("LABEL", "org.opencontainers.image.source https://github.com/ogrodje/tttm"),
-          Cmd("RUN", "apk add --no-cache bash jq curl"),
+          Cmd("RUN", "apk add --no-cache bash"),
           Cmd("ENV", "SBT_VERSION", sbtVersion.value),
           Cmd("ENV", "SCALA_VERSION", scalaVersion.value),
           Cmd("ENV", "TTTM_VERSION", version.value),

@@ -17,4 +17,4 @@ object ExternalPlayerServer:
   def fromString(raw: String): ZIO[Any, MalformedURLException, ExternalPlayerServer] =
     ZIO.fromEither(URL.decode(raw)).map(apply)
 
-  def fromURL(url: URL): ExternalPlayerServer = new ExternalPlayerServer(url)
+  def unsafeFromURL(url: URL): ExternalPlayerServer = new ExternalPlayerServer(url)
