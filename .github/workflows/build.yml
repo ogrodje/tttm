@@ -60,5 +60,10 @@ jobs:
           cache: 'sbt'
 
       - name: Run tests and publish
-        if: ${{ github.ref == 'refs/heads/master' }}
         run: sbt "test;docker:publish"
+
+      - name: Deploy to production
+        run: |
+          export DOCKER_HOST="ssh://low"
+          ./bin/tttm-prod.sh pull && \
+            ./bin/tttm-prod.sh up -d --remove-orphans

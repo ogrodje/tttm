@@ -43,7 +43,7 @@ lazy val root = (project in file("."))
     }
   )
   .settings(
-    dockerExposedPorts    := Seq(7006),
+    dockerExposedPorts    := Seq(7777),
     dockerExposedUdpPorts := Seq.empty[Int],
     dockerUsername        := Some("ogrodje"),
     dockerUpdateLatest    := true,

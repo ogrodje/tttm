@@ -1,0 +1,6 @@
+services:
+  tttm:
+    image: ghcr.io/ogrodje/tttm:latest
+    ports:
+      - "0.0.0.0:7778:7777"
+    restart: always
