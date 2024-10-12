@@ -1,5 +1,11 @@
 package si.ogrodje.tttm.v2
 
+import eu.timepit.refined.*
+import eu.timepit.refined.api.{RefType, Refined}
+import eu.timepit.refined.auto.*
+import eu.timepit.refined.boolean.*
+import eu.timepit.refined.generic.*
+import eu.timepit.refined.string.*
 import zio.json.*
 import zio.{Duration, Task, ZIO}
 import zio.prelude.{NonEmptySet, Validation}
@@ -32,9 +38,6 @@ object Move:
   def of(tpl: (Symbol, Position)): Move            = Move(tpl._1, tpl._2)
 
 type Moves = Array[Move]
-type Size  = Int
-object Size:
-  val default: Size = 3
 
 @jsonDiscriminator("type")
 enum Status:
@@ -51,14 +54,18 @@ final case class Game private (
   @jsonField("player_server_o_id") playerServerIDO: PlayerServerID,
   playing: Symbol = defaultPlaying,
   moves: Moves = Array.empty[Move],
-  size: Size = 3
+  size: Size = Size.default
 ):
   import Status.*
   private def symbolAt: Position => Option[Symbol] = (x, y) =>
     moves.find { case Move(_, (px, py), _, _) => px == x && py == y }.map(_._1)
 
-  private def listOfSymbols: Symbol => List[Option[Symbol]] =
-    symbol => (0 until size).toList.map(_ => Some(symbol))
+  private def arrayOfSymbols(symbol: Symbol): Array[Option[Symbol]] =
+    val minRequiredSize: Int = size.value match
+      case 3 => 3
+      case _ => 4
+
+    (0 until minRequiredSize).toArray.map(_ => Some(symbol))
 
   def grid: Array[(Option[Symbol], Position)] = for
     x <- (0 until size).toArray
@@ -67,18 +74,37 @@ final case class Game private (
 
   def listMoves: Array[Move] = moves
 
+  private def isSubsequence(
+    main: Array[Option[Symbol]],
+    sub: Array[Option[Symbol]]
+  ): Boolean =
+    @scala.annotation.tailrec
+    def loop(mainIndex: Int, subIndex: Int): Boolean =
+      if subIndex >= sub.length then true
+      else if mainIndex >= main.length then false
+      else
+        (main(mainIndex), sub(subIndex)) match
+          case (Some(m), Some(s)) if m == s => loop(mainIndex + 1, subIndex + 1)
+          case (None, None)                 => loop(mainIndex + 1, subIndex + 1)
+          case _                            => loop(mainIndex + 1, subIndex)
+
+    loop(0, 0)
+
+  private def sequenceOf(
+    sub: Array[Option[Symbol]]
+  )(main: Array[Option[Symbol]]): Boolean = isSubsequence(main, sub)
+
   private def wonRows(symbol: Symbol): Boolean =
-    grid.grouped(size).map(_.map(_._1)).exists(_.sameElements(listOfSymbols(symbol)))
+    grid
+      .grouped(size)
+      .map(_.map(_._1))
+      .exists(sequenceOf(arrayOfSymbols(symbol)))
 
   private def wonColumns(symbol: Symbol): Boolean =
-    (0 until size).map(r => (0 until size).map(symbolAt(_, r))).contains(listOfSymbols(symbol))
-
-  private def wonDiagonals(symbol: Symbol): Boolean =
-    val (left, right) = (
-      (0 until size).zip(0 until size).map(symbolAt) == listOfSymbols(symbol),
-      (0 until size).zip(size - 1 to 0 by -1).map(symbolAt) == listOfSymbols(symbol)
-    )
-    left || right
+    (0 until size)
+      .map(r => (0 until size).map(symbolAt(_, r)))
+      .map(_.toArray)
+      .exists(sequenceOf(arrayOfSymbols(symbol)))
 
   private def hasWon(symbol: Symbol): Boolean =
     Seq(wonRows, wonColumns, wonDiagonals).exists(f => f(symbol))
@@ -95,6 +121,46 @@ final case class Game private (
       case true -> true  => Won(X)
       case _ if isFull   => Tie
       case _             => Pending
+
+  private def wonDiagonals(symbol: Symbol): Boolean =
+    val minimumSize: Int = size.value match
+      case 3 => 3
+      case _ => 4
+
+    def diagonallyTopLeftToBottomRight(n: Int, minSize: Int): Array[Array[Position]] =
+      generateDiagonal(n, minSize, (i, d) => (i, d - i), (x, y, maxN) => x < maxN && y < maxN)
+
+    def diagonallyTopRightToBottomLeft(n: Int, minSize: Int): Array[Array[Position]] =
+      generateDiagonal(n, minSize, (i, d) => (i, (n - 1) - (d - i)), (x, y, _) => x < n && y >= 0)
+
+    def generateDiagonal(
+      n: Int,
+      minSize: Int,
+      coordinates: (Int, Int) => (Int, Int),
+      condition: (Int, Int, Int) => Boolean
+    ): Array[Array[Position]] =
+      val result = scala.collection.mutable.ArrayBuffer[Array[Position]]()
+      for d <- 0 until 2 * n - 1 do
+        val diagonal = scala.collection.mutable.ArrayBuffer[Position]()
+        for i <- 0 to d do
+          val (x, y) = coordinates(i, d)
+          if condition(x, y, n) then diagonal.append((x, y))
+        result.append(diagonal.toArray)
+      result.toArray.filter(_.length >= minSize)
+
+    val left  =
+      diagonallyTopLeftToBottomRight(size, minimumSize)
+        .map(_.map(symbolAt))
+        .exists(sequenceOf(arrayOfSymbols(symbol)))
+    val right =
+      diagonallyTopRightToBottomLeft(size, minimumSize)
+        .map(_.map(symbolAt))
+        .exists(sequenceOf(arrayOfSymbols(symbol)))
+
+    left || right
+
+  def wonBy(symbol: Symbol): Boolean = status == Status.Won(symbol)
+  def isTie: Boolean                 = status == Status.Tie
 
   def show: String =
     grid
@@ -133,7 +199,7 @@ final case class Game private (
     nonEmptyMoves(moves.toSeq)
       .flatMap(validateSymbols)
       .flatMap(validSequence)
-      .flatMap(moves => validateFirstMove(game, moves).as(moves))
+      .flatMap(validateFirstMove(game, moves).as)
 
   def appendUnsafe(moves: Move*): Game = append(moves*).toTry.get
 
@@ -165,6 +231,7 @@ final case class Game private (
   def appendZIO(moves: Move*): Task[Game] = ZIO.fromEither(append(moves*))
 
 object Game:
+  given sizeEncoder: JsonEncoder[Size]     = JsonEncoder[Int].contramap(_.value)
   given gameJsonEncoder: JsonEncoder[Game] = DeriveJsonEncoder.gen[Game]
 
   def make(
@@ -177,4 +244,9 @@ object Game:
   ): Game =
     apply(gid, playerServerIDX, playerServerIDO, playing, moves, size)
 
-  val empty: Game = make(UUID.randomUUID(), playerServerIDX = "pid-" + X, playerServerIDO = "pid-" + O)
+  val empty: Game              = make(
+    UUID.randomUUID(),
+    playerServerIDX = "pid-" + X,
+    playerServerIDO = "pid-" + O
+  )
+  def ofSize(size: Size): Game = empty.copy(size = size)

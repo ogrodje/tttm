@@ -1,6 +1,6 @@
 package si.ogrodje.tttm.v2.apps
 
-import si.ogrodje.tttm.v2.{ExternalPlayerServer, Gameplay, Match, MatchResult, PlayerServer}
+import si.ogrodje.tttm.v2.{ExternalPlayerServer, Gameplay, Match, MatchResult, PlayerServer, Size}
 import zio.ZIO.logInfo
 import zio.cli.*
 import zio.http.{Client, URL}
@@ -20,18 +20,18 @@ object PlayApp extends ZIOCliDefault:
   override val bootstrap: ZLayer[ZIOAppArgs, Nothing, Any] =
     Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
-  private type Size          = BigInt
+  // private type Size          = BigInt
   private type ShouldScore   = Boolean
   private type NumberOfGames = BigInt
   private val score: Options[ShouldScore]           = Options.boolean("score").alias("s")
-  private val size: Options[Size]                   = Options.integer("size").withDefault(BigInt(3))
+  private val size: Options[BigInt]                 = Options.integer("size").withDefault(BigInt(3))
   private val numberOfGames: Options[NumberOfGames] = Options.integer("games").alias("g").withDefault(BigInt(1))
   private val help: HelpDoc                         = HelpDoc.p("Plays a game between two servers.")
 
   private val (serverA: Args[RawURL], serverB: Args[RawURL]) =
     Args.text("server-a") -> Args.text("server-b")
 
-  private val command: Command[((ShouldScore, Size, NumberOfGames), (RawURL, RawURL))] =
+  private val command: Command[((ShouldScore, BigInt, NumberOfGames), (RawURL, RawURL))] =
     Command("play", score ++ size ++ numberOfGames, serverA ++ serverB).withHelp(help)
 
   val cliApp = CliApp.make(
@@ -39,20 +39,24 @@ object PlayApp extends ZIOCliDefault:
     version = "0.0.1",
     summary = HelpDoc.Span.empty,
     command = command
-  ) { case ((shouldScore, size, numberOfGames), _ @(serverA, serverB)) =>
-    RawURL.parse(serverA).zipPar(RawURL.parse(serverB)).flatMap(play(shouldScore, numberOfGames))
+  ) { case ((shouldScore, rawSize, numberOfGames), _ @(serverA, serverB)) =>
+    for
+      (serverA, serverB) <- RawURL.parse(serverA).zipPar(RawURL.parse(serverB))
+      size               <- ZIO.fromEither(Size.of(rawSize.toInt))
+      out                <- play(size, shouldScore, numberOfGames)(serverA, serverB)
+    yield out
   }
 
   private def play(
+    size: Size,
     shouldScore: ShouldScore = false,
-    numberOfGames: BigInt = BigInt(1),
-    size: BigInt = 3
+    numberOfGames: BigInt = BigInt(1)
   )(serverAUrl: URL, serverBUrl: URL) = for
     _      <- logInfo(s"Server A: $serverAUrl, server B: $serverBUrl, size: $size, should score: $shouldScore")
     serverA = ExternalPlayerServer.unsafeFromURL(serverAUrl)
     serverB = ExternalPlayerServer.unsafeFromURL(serverBUrl)
     out    <- Match
-                .playGames(serverA, serverB, numberOfGames.toLong, concurrentProcesses = 3)
+                .playGames(serverA, serverB, numberOfGames.toLong, concurrentProcesses = 3, size)
                 .provide(Client.default.and(Scope.default))
     _      <- printLine(MatchResult.matchResultJsonEncoder.encodeJson(out, Some(2)))
   yield ()

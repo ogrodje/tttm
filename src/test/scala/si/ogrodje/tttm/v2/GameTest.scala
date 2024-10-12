@@ -13,7 +13,7 @@ object GameTest extends ZIOSpecDefault:
   def spec = suite("GameTest")(
     test("empty game has size of 3") {
       val game = Game.empty
-      assertTrue(game.size == 3)
+      assertTrue(game.size == Size.default)
       assertTrue(game.grid.length == 3 * 3)
       assertTrue(game.emptyPositions.length == 3 * 3)
       assertTrue(game.status == Pending)
@@ -39,7 +39,7 @@ object GameTest extends ZIOSpecDefault:
         O -> (2, 1),
         X -> (2, 2)
       )
-      assertTrue(tieGame.status == Tie)
+      assertTrue(tieGame.isTie)
 
       val wonGame = Game.empty.appendUnsafe(
         X -> (1, 1),
@@ -48,7 +48,7 @@ object GameTest extends ZIOSpecDefault:
         O -> (0, 1),
         X -> (2, 0)
       )
-      assertTrue(wonGame.status == Won(X))
+      assertTrue(wonGame.wonBy(X))
     },
     test("status of tie") {
       val game = Game.empty.appendUnsafe(
@@ -59,7 +59,7 @@ object GameTest extends ZIOSpecDefault:
         X -> (0, 2),
         O -> (1, 2)
       )
-      assertTrue(game.status == Won(X))
+      assertTrue(game.wonBy(X))
     },
     test("appending") {
       assertTrue(Game.empty.append(X -> (1, 1), X -> (0, 0)).isLeft)
@@ -67,5 +67,75 @@ object GameTest extends ZIOSpecDefault:
       assertTrue(Game.empty.append(X -> (1, 1), O -> (1, 1)).isLeft)
       assertTrue(Game.empty.append(O -> (1, 1)).isLeft)
       assertTrue(Game.empty.append(X -> (1, 1)).isRight)
+    },
+    test("size of 5") {
+      val size = Size.of(5).toTry.get
+      assertTrue(
+        Game
+          .ofSize(size)
+          .append(
+            X -> (0, 0),
+            O -> (0, 1),
+            X -> (0, 2),
+            O -> (0, 3),
+            X -> (0, 4)
+          )
+          .isRight
+      )
+    },
+    test("tie in 5x5") {
+      val size = Size.of(5).toTry.get
+      val g    = Game.ofSize(size)
+      assertTrue(g.size == size)
+    },
+    test("row win in 5x5") {
+      val g = Game
+        .ofSize(Size.unsafe(5))
+        .appendUnsafe(
+          X -> (0, 0),
+          O -> (1, 0),
+          X -> (0, 1),
+          O -> (2, 1),
+          X -> (0, 3),
+          O -> (1, 2),
+          X -> (1, 4),
+          O -> (2, 3),
+          X -> (0, 2)
+        )
+      assertTrue(g.wonBy(X))
+    },
+    test("col win of O in 5x5") {
+      val g = Game
+        .ofSize(Size.unsafe(5))
+        .appendUnsafe(
+          X -> (0, 0),
+          O -> (1, 1),
+          X -> (0, 2),
+          O -> (2, 1),
+          X -> (1, 3),
+          O -> (3, 1),
+          X -> (3, 4),
+          O -> (4, 1)
+        )
+      assertTrue(g.wonBy(O))
+    },
+    test("size of 7") {
+      assertTrue(Game.ofSize(Size.unsafe(7)).size == Size.unsafe(7))
+    },
+    test("won diagonal O in 7x7") {
+      val g = Game
+        .ofSize(Size.unsafe(7))
+        .appendUnsafe(
+          X -> (0, 0),
+          O -> (1, 3),
+          X -> (1, 5),
+          O -> (2, 2),
+          X -> (4, 6),
+          O -> (0, 4),
+          X -> (5, 3),
+          O -> (3, 1)
+        )
+
+      assertTrue(g.status == Won(O))
     }
   )

@@ -49,6 +49,6 @@ object GameDecoder:
     playerServerIDX = "pid-x", // not needed for client
     playerServerIDO = "pid-o", // not needed for client
     playing,
-    size = 3,
+    size = Size.default,
     moves
   )

@@ -1,27 +1,13 @@
 package si.ogrodje.tttm.v2.apps
 
-import si.ogrodje.tttm.v2.{
-  ExternalPlayerServer,
-  Match,
-  MatchResult,
-  PlayerServer,
-  QueryParamOps,
-  ReporterMessage,
-  StreamingReporter
-}
-import QueryParamOps.*
 import zio.*
-import zio.http.*
+import si.ogrodje.tttm.v2.QueryParamOps.*
+import si.ogrodje.tttm.v2.*
 import zio.ZIO.{logError, logInfo}
-import zio.cli.*
-import zio.http.{Client, URL}
-import zio.logging.backend.SLF4J
-import zio.*
-import zio.stream.*
-import zio.Console.printLine
-import zio.http.ChannelEvent.{ExceptionCaught, Read, UserEvent, UserEventTriggered}
-import zio.http.WebSocketFrame.Text
+import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
+import zio.http.*
 import zio.json.*
+import zio.logging.backend.SLF4J
 
 enum ServerError extends RuntimeException:
   case MissingQueryParameter(name: String) extends ServerError
@@ -56,7 +42,6 @@ object Message:
     Read(WebSocketFrame.text(messageJsonEncoder.encodeJson(m, indent = jsonIndent).toString))
 
 object ServerApp extends ZIOAppDefault:
-  import ServerError.*
   import Message.*
   override val bootstrap: ZLayer[ZIOAppArgs, Nothing, Any] =
     Runtime.removeDefaultLoggers >>> SLF4J.slf4j
@@ -64,7 +49,7 @@ object ServerApp extends ZIOAppDefault:
   private def sandboxSocketApp(
     serverA: PlayerServer,
     serverB: PlayerServer,
-    size: Int,
+    size: Size,
     numberOfGames: Long
   ): WebSocketApp[zio.Scope & Client] =
     Handler.webSocket { channel =>
@@ -86,7 +71,7 @@ object ServerApp extends ZIOAppDefault:
                   s"Hello. Let's play a match between $serverA and $serverBUrl, size: $size, number of games: $numberOfGames",
                   serverAUrl,
                   serverBUrl,
-                  size,
+                  size.value,
                   numberOfGames
                 )
               )
@@ -97,6 +82,7 @@ object ServerApp extends ZIOAppDefault:
                   serverB,
                   numberOfGames,
                   concurrentProcesses = 3,
+                  size = size,
                   maybeGameplayReporter = Some(streamingReporter)
                 )
                 .foldZIO(
@@ -124,7 +110,8 @@ object ServerApp extends ZIOAppDefault:
           serverA        = ExternalPlayerServer.unsafeFromURL(serverAUrl)
           serverB        = ExternalPlayerServer.unsafeFromURL(serverBUrl)
           numberOfGames <- req.queryParameters.getAsWithDefault[Long]("number-of-games", 10)
-          size          <- req.queryParameters.getAsWithDefault[Int]("size", 3)
+          rawSize       <- req.queryParameters.getAsWithDefault[Int]("size", 3)
+          size          <- ZIO.fromEither(Size.of(rawSize))
           response      <- sandboxSocketApp(serverA, serverB, size, numberOfGames).toResponse
         yield response
       }.tapErrorZIO(th => logError(s"Boom with ${th.getMessage}"))

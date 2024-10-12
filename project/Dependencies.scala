@@ -33,7 +33,7 @@ object Dependencies {
     "dev.zio" %% "zio-logging",
     "dev.zio" %% "zio-logging-slf4j2"
   ).map(_ % Versions.zioLogging) ++ Seq(
-    "ch.qos.logback" % "logback-classic" % "1.5.7"
+    "ch.qos.logback" % "logback-classic" % "1.5.9"
   ) ++ Seq(
     "dev.zio" %% "zio-schema",
     "dev.zio" %% "zio-schema-json",
@@ -45,10 +45,12 @@ object Dependencies {
     "dev.zio" %% "zio-metrics-connectors-prometheus"
   ).map(_ % "2.3.1") ++ Seq(
     "dev.zio" %% "zio-json-yaml" % "0.7.3"
+  ) ++ Seq(
+    "eu.timepit" %% "refined" % "0.11.2"
   )
 
   lazy val logging: Modules = Seq(
-    "ch.qos.logback" % "logback-classic" % "1.5.6"
+    "ch.qos.logback" % "logback-classic" % "1.5.9"
   ) ++ Seq(
     "org.typelevel" %% "log4cats-core",
     "org.typelevel" %% "log4cats-slf4j"
