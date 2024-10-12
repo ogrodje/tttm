@@ -57,8 +57,8 @@ jobs:
           distribution: 'zulu'
           cache: 'sbt'
 
-      - name: Run tests and publish
-        run: sbt "test;docker:publish"
+      - uses: sbt/setup-sbt@v1
+      - run: sbt "test;docker:publish"
 
       - name: Deploy to production
         run: |
