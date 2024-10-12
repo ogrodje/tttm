@@ -20,8 +20,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
+      - uses: shimataro/ssh-key-action@v2
         with:
           known_hosts: unnecessary
           key: ${{ secrets.SSH_KEY }}
@@ -36,8 +35,7 @@ jobs:
               ConnectionAttempts 2
           if_key_exists: fail
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Log into registry ${{ env.REGISTRY }}
         if: github.event_name != 'pull_request'
@@ -57,7 +55,7 @@ jobs:
         with:
           java-version: '21'
           distribution: 'zulu'
-          cache: 'sbt'
+          # cache: 'sbt'
 
       - name: Run tests and publish
         run: sbt "test;docker:publish"
