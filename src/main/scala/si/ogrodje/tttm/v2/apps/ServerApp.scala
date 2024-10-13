@@ -110,5 +110,5 @@ object ServerApp extends ZIOAppDefault:
     .provide(
       Server.defaultWithPort(7777),
       Client.default.and(Scope.default),
-      ZLayer.fromZIO(PlayersConfig.fromDefaultFile)
+      ZLayer.fromZIO(PlayersConfig.fromResources)
     )

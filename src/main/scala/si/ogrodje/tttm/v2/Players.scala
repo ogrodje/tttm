@@ -14,6 +14,7 @@ import zio.json.*
 import zio.json.yaml.*
 import zio.stream.{Stream, ZStream}
 
+import java.io.FileNotFoundException
 import scala.io.*
 import scala.jdk.StreamConverters.*
 import scala.jdk.CollectionConverters.*
@@ -71,12 +72,28 @@ object PlayersConfig:
     finally
       source.close
 
+  private def stringToYaml(content: String) =
+    ZIO.fromEither(content.fromYaml[PlayersConfig]).mapError(err => new RuntimeException(err))
+
   def fromFile(path: Path): ZIO[Any, Throwable, PlayersConfig] =
     for
       content       <- ZIO.attemptBlocking(readFile(path))
-      playersConfig <-
-        ZIO.fromEither(content.fromYaml[PlayersConfig]).mapError(err => new RuntimeException(err))
+      playersConfig <- stringToYaml(content)
     yield playersConfig
 
   def fromDefaultFile: ZIO[Any, Throwable, PlayersConfig] =
     fromFile(Path.of("players.yml"))
+
+  def readResource(resourcePath: String): ZIO[Any, Throwable, PlayersConfig] =
+    val tryRead = ZIO.fromTry(
+      Try(scala.io.Source.fromInputStream(getClass.getResourceAsStream(resourcePath)).getLines)
+    )
+
+    ZStream
+      .fromZIO(tryRead)
+      .flatMap(it => ZStream.fromIterator(it))
+      .runFold("")(_ + _ + "\n")
+      .flatMap(stringToYaml)
+
+  def fromResources: ZIO[Any, Throwable, PlayersConfig] =
+    readResource("/players.yml")
