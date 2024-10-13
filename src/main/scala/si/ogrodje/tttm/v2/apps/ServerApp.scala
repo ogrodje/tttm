@@ -3,48 +3,26 @@ package si.ogrodje.tttm.v2.apps
 import zio.*
 import si.ogrodje.tttm.v2.QueryParamOps.*
 import si.ogrodje.tttm.v2.*
+import si.ogrodje.tttm.v2.server.*
 import zio.ZIO.{logError, logInfo}
 import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.http.*
+import zio.http.Header.{AccessControlAllowOrigin, Origin}
+import zio.http.Middleware.{cors, CorsConfig}
 import zio.json.*
 import zio.logging.backend.SLF4J
-
-enum ServerError extends RuntimeException:
-  case MissingQueryParameter(name: String) extends ServerError
-
-@jsonHintNames(SnakeCase)
-@jsonDiscriminator("type")
-enum Message(message: String):
-  case Greet(
-    message: String,
-    @jsonField("server_a_url") serverAUrl: URL,
-    @jsonField("server_b_url") serverBUrl: URL,
-    size: Int,
-    @jsonField("number_of_games") numberOfGames: Long
-  ) extends Message(message)
-
-  case MatchCompleted(
-    message: String,
-    matchResult: MatchResult
-  ) extends Message(message)
-
-  case MatchError(message: String) extends Message(message)
-  case GameMessage(
-    message: String,
-    @jsonField("details") reporterMessage: ReporterMessage
-  )                                extends Message(message)
-
-object Message:
-  private val jsonIndent: Option[Int]             = None
-  given JsonEncoder[URL]                          = JsonEncoder[String].contramap(_.toString)
-  given messageJsonEncoder: JsonEncoder[Message]  = DeriveJsonEncoder.gen
-  given Conversion[Message, Read[WebSocketFrame]] = (m: Message) =>
-    Read(WebSocketFrame.text(messageJsonEncoder.encodeJson(m, indent = jsonIndent).toString))
 
 object ServerApp extends ZIOAppDefault:
   import Message.*
   override val bootstrap: ZLayer[ZIOAppArgs, Nothing, Any] =
     Runtime.removeDefaultLoggers >>> SLF4J.slf4j
+
+  private val corsConfig: CorsConfig =
+    CorsConfig(
+      allowedOrigin = _ => Some(Header.AccessControlAllowOrigin.All),
+      allowedMethods = Header.AccessControlAllowMethods.All,
+      allowedHeaders = Header.AccessControlAllowHeaders.All
+    )
 
   private def sandboxSocketApp(
     serverA: PlayerServer,
@@ -100,9 +78,13 @@ object ServerApp extends ZIOAppDefault:
       }
     }
 
-  private val routes: Routes[Scope & Client, Nothing] =
+  private val routes: Routes[Scope & Client & PlayersConfig, Nothing] =
     Routes(
       Method.GET / Root      -> handler(Response.text("Hello.")),
+      Method.GET / "players" -> handler { (req: Request) =>
+        for playersConfig <- ZIO.service[PlayersConfig]
+        yield Response.json(PlayersConfig.playersJsonEncoder.encodeJson(playersConfig))
+      },
       Method.GET / "sandbox" -> handler { (req: Request) =>
         for
           serverAUrl    <- req.queryParameters.requiredAs[URL]("server-a")
@@ -121,8 +103,12 @@ object ServerApp extends ZIOAppDefault:
             Response.text(s"Sorry, request was not processed. Cause: ${th.getClass.getSimpleName} / ${th.getMessage}")
           )
         )
-    )
+    ) @@ cors(corsConfig)
 
   def run = Server
     .serve(routes)
-    .provide(Server.defaultWithPort(7777), Client.default.and(Scope.default))
+    .provide(
+      Server.defaultWithPort(7777),
+      Client.default.and(Scope.default),
+      ZLayer.fromZIO(PlayersConfig.fromDefaultFile)
+    )
