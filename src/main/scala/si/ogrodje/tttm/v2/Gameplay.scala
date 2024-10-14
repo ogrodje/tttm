@@ -29,18 +29,20 @@ final class Gameplay private (
     queryParams <- ZIO.attempt(GameEncoder.encode(game))
     endpoint     = playerServer.serverEndpoint
     request      = Request.get(url = endpoint).updatePath(_ ++ Path("/move")).setQueryParams(queryParams)
-    _           <- reporter.logInfo(s"Requesting ${request.url.host.getOrElse("UNKNOWN")}")(
-                     Some(game.gid)
-                   )
+    _           <-
+      reporter.logInfo(s"Requesting ${request.url.host.getOrElse("UNKNOWN")}")(
+        Some(game.gid)
+      )
   yield request
 
   private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, Throwable, Move] = for
     request                   <- mkMoveRequest(server, game)
     (duration, maybeResponse) <- client.request(request).timeout(requestTimeout).timed
     response                  <- ZIO.fromOption(maybeResponse).orElseFail(ServerTimeout(server.serverEndpoint.toString))
-    move                      <- response.body.asString
-                                   .flatMap(BodyParser.parse)
-                                   .mapError(th => ParsingError(s"Failed to parse body: ${th.getMessage}"))
+    move                      <-
+      response.body.asString
+        .flatMap(BodyParser.parse)
+        .mapError(th => ParsingError(s"Player server has failed with: ${th.getMessage}"))
     _                         <-
       reporter.logInfo(
         s"Received valid response from ${request.url.host.getOrElse("UNKNOWN")} in ${duration.toMillis}ms"

@@ -76,10 +76,7 @@ object PlayersConfig:
     ZIO.fromEither(content.fromYaml[PlayersConfig]).mapError(err => new RuntimeException(err))
 
   def fromFile(path: Path): ZIO[Any, Throwable, PlayersConfig] =
-    for
-      content       <- ZIO.attemptBlocking(readFile(path))
-      playersConfig <- stringToYaml(content)
-    yield playersConfig
+    ZIO.attemptBlocking(readFile(path)).flatMap(stringToYaml)
 
   def fromDefaultFile: ZIO[Any, Throwable, PlayersConfig] =
     fromFile(Path.of("players.yml"))

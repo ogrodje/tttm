@@ -2,15 +2,13 @@ package si.ogrodje.tttm.v2
 import zio.ZIO
 import ZIO.fromEither
 
-enum BodyParserError extends Exception:
-  case NoMoveFound                        extends BodyParserError
-  case NoErrorMessage                     extends BodyParserError
-  case CustomPlayerError(message: String) extends BodyParserError
+enum BodyParserError(val message: String) extends Throwable(message):
+  case NoMoveFound                                     extends BodyParserError("No move payload found.")
+  case NoErrorMessage                                  extends BodyParserError("No error message was present.")
+  case CustomPlayerError(override val message: String) extends BodyParserError(message)
 
 object BodyParser:
   import BodyParserError.*
-
-  type ErrorMessage = String
 
   private def parseBody(body: String): Either[BodyParserError, Move] =
     "Move:([XO])-(\\d)-(\\d)".r
@@ -23,7 +21,7 @@ object BodyParser:
       }
       .toRight(NoMoveFound)
 
-  private def maybeError(body: String): Either[BodyParserError, ErrorMessage] =
+  private def maybeError(body: String): Either[BodyParserError, String] =
     "Error:(.*)".r
       .findFirstMatchIn(body.take(255).trim)
       .map(_.group(1))
@@ -34,6 +32,6 @@ object BodyParser:
     val parsedError = fromEither(maybeError(raw))
 
     parsedMove.orElse(parsedError).flatMap {
-      case move: Move            => ZIO.succeed(move)
-      case message: ErrorMessage => ZIO.fail(CustomPlayerError(message))
+      case move: Move      => ZIO.succeed(move)
+      case message: String => ZIO.fail(CustomPlayerError(message))
     }
