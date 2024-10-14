@@ -45,3 +45,11 @@ players:
     repository_url: https://github.com/perkzen/tttm-mango
     endpoint_url: https://mango.perkz.cloud/
     sizes: [ 3, 5, 7 ]
+
+  - name: ttterminator
+    author: Timotej Avsec
+    tags: [ go, alpha-beta-prunning ]
+    author_url: https://github.com/tavsec
+    repository_url: https://github.com/tavsec/ttterminator
+    endpoint_url: https://ttterminator.app.timotejavsec.com/
+    sizes: [ 3 ]
