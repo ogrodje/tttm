@@ -1,5 +1,6 @@
 package si.ogrodje.tttm.v2
 
+import si.ogrodje.tttm.v2.Match.NumberOfGames
 import zio.*
 import zio.ZIO.logInfo
 import zio.http.Client
@@ -34,17 +35,16 @@ object MatchResult:
   given matchResultJsonEncoder: JsonEncoder[MatchResult] = DeriveJsonEncoder.gen[MatchResult]
   val empty: MatchResult                                 = apply(playerXID = "x", playerOID = "o")
 
-object Match:
-  private type NumberOfGames = Long
-  private type MatchResults  = Map[PlayerServerID, MatchPlayerResult]
+final case class Match private (
+  serverA: PlayerServer,
+  serverB: PlayerServer,
+  numberOfGames: NumberOfGames,
+  size: Size = Size.default,
+  maybeGameplayReporter: Option[GameplayReporter] = None
+):
 
   def playGames(
-    serverA: PlayerServer,
-    serverB: PlayerServer,
-    numberOfGames: NumberOfGames,
-    concurrentProcesses: Int = 4,
-    size: Size = Size.default,
-    maybeGameplayReporter: Option[GameplayReporter] = None
+    concurrentProcesses: Int = 4
   ): ZIO[Scope & Client, Throwable, MatchResult] =
     val serverIDS = (serverA.id, serverB.id)
 
@@ -59,7 +59,7 @@ object Match:
             .play
             .map(result => servers -> result)
             .tap { case (_, (g, result)) =>
-              logInfo(s"Completed game n: ${n}; Moves: ${g.moves.length}, Status: ${g.status}")
+              logInfo(s"Completed game n: $n; Moves: ${g.moves.length}, Status: ${g.status}")
             }
         }
 
@@ -120,3 +120,14 @@ object Match:
         responseMax = max
       )
     }
+
+object Match:
+  private type NumberOfGames = Long
+
+  def mk(
+    serverA: PlayerServer,
+    serverB: PlayerServer,
+    numberOfGames: NumberOfGames,
+    size: Size = Size.default,
+    maybeGameplayReporter: Option[GameplayReporter] = None
+  ): Match = apply(serverA, serverB, numberOfGames, size, maybeGameplayReporter)

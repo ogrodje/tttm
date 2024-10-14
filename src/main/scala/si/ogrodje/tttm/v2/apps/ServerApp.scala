@@ -55,14 +55,14 @@ object ServerApp extends ZIOAppDefault:
               )
             _                        <-
               Match
-                .playGames(
+                .mk(
                   serverA,
                   serverB,
                   numberOfGames,
-                  concurrentProcesses = 3,
-                  size = size,
-                  maybeGameplayReporter = Some(streamingReporter)
+                  size,
+                  Some(streamingReporter)
                 )
+                .playGames(concurrentProcesses = 3)
                 .foldZIO(
                   th =>
                     logError(th.getMessage) *>

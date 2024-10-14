@@ -5,7 +5,6 @@ import si.ogrodje.tttm.v2.GameplayError.{ParsingError, ServerTimeout}
 import si.ogrodje.tttm.v2.Status.*
 import zio.*
 import zio.http.*
-import zio.json.*
 import zio.prelude.NonEmptyList
 
 import java.util.UUID
@@ -38,7 +37,8 @@ final class Gameplay private (
   private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, Throwable, Move] = for
     request                   <- mkMoveRequest(server, game)
     (duration, maybeResponse) <- client.request(request).timeout(requestTimeout).timed
-    response                  <- ZIO.fromOption(maybeResponse).orElseFail(ServerTimeout(server.serverEndpoint.toString))
+    response                  <-
+      ZIO.fromOption(maybeResponse).orElseFail(ServerTimeout(server.serverEndpoint.toString))
     move                      <-
       response.body.asString
         .flatMap(BodyParser.parse)
