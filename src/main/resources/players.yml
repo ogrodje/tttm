@@ -26,6 +26,7 @@ players:
     author: Matjaž Lipuš
     tags: [ cloudflare-workers, javascript, rainbow-table ]
     author_url: https://github.com/matjaz
+    repository_url: https://github.com/matjaz/tttm-solved
     endpoint_url: https://tttm-solved.matjaz.workers.dev/
     sizes: [ 3 ]
     
