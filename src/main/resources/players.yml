@@ -19,6 +19,7 @@ players:
     author: Matjaž Lipuš
     tags: [ cloudflare-workers, javascript, minimax-strategy ]
     author_url: https://github.com/matjaz
+    repository_url: https://github.com/matjaz/tttm-maxi
     endpoint_url: https://tttm-maxi.matjaz.workers.dev
     sizes: [ 3 ]
 
