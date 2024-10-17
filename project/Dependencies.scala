@@ -16,6 +16,7 @@ object Dependencies {
     val quartz: Version        = "2.3.2"
     val zio: Version           = "2.1.9"
     val zioLogging: Version    = "2.3.1"
+    val zioHttp: Version       = "3.0.1"
   }
 
   lazy val zio: Modules = Seq(
@@ -27,7 +28,6 @@ object Dependencies {
     "dev.zio" %% "zio-test-magnolia"
   ).map(_ % Versions.zio % Test) ++ Seq(
     "dev.zio" %% "zio-prelude" % "1.0.0-RC31",
-    "dev.zio" %% "zio-http"    % "3.0.1",
     "dev.zio" %% "zio-cli"     % "0.5.0"
   ) ++ Seq(
     "dev.zio" %% "zio-logging",
@@ -47,6 +47,9 @@ object Dependencies {
     "dev.zio" %% "zio-json-yaml" % "0.7.3"
   ) ++ Seq(
     "eu.timepit" %% "refined" % "0.11.2"
+  ) ++ Seq(
+    "dev.zio" %% "zio-http"         % Versions.zioHttp,
+    "dev.zio" %% "zio-http-testkit" % Versions.zioHttp % Test
   )
 
   lazy val logging: Modules = Seq(

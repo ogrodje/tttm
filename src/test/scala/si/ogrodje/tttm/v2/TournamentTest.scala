@@ -2,27 +2,22 @@ package si.ogrodje.tttm.v2
 
 import eu.timepit.refined.api.RefType
 import zio.*
-import zio.http.{Client, URL}
+import zio.http.*
+import zio.http.netty.NettyConfig
+import zio.http.netty.server.NettyDriver
 import zio.logging.backend.SLF4J
 import zio.test.*
-import eu.timepit.refined.*
-import eu.timepit.refined.auto.*
-import eu.timepit.refined.api.*
-import eu.timepit.refined.predicates.all.NonEmpty
-import eu.timepit.refined.generic.*
-import eu.timepit.refined.string.*
 
 import java.net.URI
-import java.util.UUID
 
 object TournamentTest extends ZIOSpecDefault:
   override val bootstrap: ZLayer[Any, Any, zio.test.TestEnvironment] =
     Runtime.removeDefaultLoggers >>> SLF4J.slf4j >>> testEnvironment
 
   private val authorName                         =
-    RefType.applyRef[AuthorName]("Oto Brglez").left.map(v => new RuntimeException(s"Boom ${v}")).toTry.get
+    RefType.applyRef[AuthorName]("Oto Brglez").left.map(v => new RuntimeException(s"Boom $v")).toTry.get
   private val nameOf: String => PlayerServerName = rawName =>
-    RefType.applyRef[PlayerServerName](rawName).left.map(v => new RuntimeException(s"Boom ${v}")).toTry.get
+    RefType.applyRef[PlayerServerName](rawName).left.map(v => new RuntimeException(s"Boom $v")).toTry.get
 
   private val authorURL = URL.decode("https://epic.blog").toTry.get
 
@@ -57,7 +52,7 @@ object TournamentTest extends ZIOSpecDefault:
       val tournament = Tournament.fromPlayersConfig(config)
 
       tournament.tournamentMatches.foreach { case (size, m) =>
-        if verbose then println(s"Size: ${size}")
+        if verbose then println(s"Size: $size")
         m.foreach(m => if verbose then println(s"\t- M: ${m.serverA.id} VS ${m.serverB.id}"))
       }
 
@@ -68,19 +63,55 @@ object TournamentTest extends ZIOSpecDefault:
       )
     },
     test("play the tournament") {
-      val verbose    = !true
-      val tournament = Tournament.fromPlayersConfig(config)
-      val pom        =
-        tournament
-          .play(requestTimeout = Duration.fromMillis(100L))
-          .provideLayer(Client.default.and(Scope.default))
-          .runDrain
+      val verbose = !true
 
-      assertZIO(pom)(
+      val x = (for
+        port              <- ZIO.serviceWithZIO[Server](_.port)
+        tournament         =
+          Tournament.fromPlayersConfig(config.copy(players = config.players.zipWithIndex.map { case (player, i) =>
+            player.copy(
+              endpointURL = URL.root.port(port).path(s"/${player.id}")
+              // sizes = Sizes.unsafeOf(3)
+            )
+          }))
+        _                 <-
+          TestServer.addRoutes {
+            Routes(
+              Method.GET / "p2" / "move"                ->
+                Handler.fromFunctionZIO { (request: Request) =>
+                  ZIO.succeed(Response.text("Error:I'm server p2. I always crash."))
+                },
+              Method.GET / string("player-id") / "move" ->
+                Handler
+                  .fromFunctionZIO[(String, Request)] { case (playerID, request) =>
+                    SamplePlayerRandomLogic.handleMove(request).delay(Duration.fromMillis(2))
+                  }
+                  .sandbox
+            )
+          }
+        tournamentResults <-
+          tournament
+            .play(requestTimeout = Duration.fromMillis(200L))
+            .provideSome[Client with Driver](TestServer.layer.and(Scope.default))
+      yield tournamentResults).provide(
+        TestServer.layer,
+        ZLayer.succeed(Server.Config.default.onAnyOpenPort),
+        Client.default,
+        NettyDriver.customized,
+        ZLayer.succeed(NettyConfig.defaultWithFastShutdown)
+      )
+
+      assertZIO(x)(
         Assertion.assertion("test") { results =>
-          println(s"got => ${results}")
-          true == true
+          val j = TournamentResults.tournamentResultsEncoder.encodeJson(results, Some(1))
+          // tournamentResultsEncoder
+          // println(s"got => ${results}")
+          // println(j)
+
+          results.size3.nonEmpty &&
+          results.size5.nonEmpty &&
+          results.size7.nonEmpty
         }
       )
-    }
+    } @@ TestAspect.withLiveClock
   )

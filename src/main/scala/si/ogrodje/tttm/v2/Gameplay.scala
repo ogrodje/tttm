@@ -1,16 +1,14 @@
 package si.ogrodje.tttm.v2
 
-import si.ogrodje.tttm.v2
-import si.ogrodje.tttm.v2.GameplayError.{NetworkingError, ParsingError, ServerTimeout}
+import si.ogrodje.tttm.v2.GameplayError.*
 import si.ogrodje.tttm.v2.Status.*
 import zio.*
 import zio.http.*
 import zio.prelude.NonEmptyList
 
 import java.util.UUID
-import scala.util.control.NoStackTrace
 
-enum GameplayError(playerServer: PlayerServer, val message: String) extends Throwable(message) /* with NoStackTrace */:
+enum GameplayError(playerServer: PlayerServer, val message: String) extends Throwable(message):
   case ServerTimeout(playerServer: PlayerServer, serverURL: String)
       extends GameplayError(playerServer, s"[${playerServer.id}] Server $serverURL has timed-out.")
   case ParsingError(playerServer: PlayerServer, override val message: String)

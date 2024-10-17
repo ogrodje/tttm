@@ -2,9 +2,20 @@ package si.ogrodje.tttm.v2
 
 import java.time.{LocalDateTime, ZoneId}
 import java.util.UUID
-import zio.{Duration, Scope, ZIO}
+import zio.{Duration, RIO, Scope, Task, ZIO}
 import zio.http.Client
-import zio.stream.{Stream, ZStream}
+import zio.json.{jsonField, jsonMemberNames, DeriveJsonEncoder, JsonEncoder, SnakeCase}
+import zio.stream.ZStream
+
+@jsonMemberNames(SnakeCase)
+final case class TournamentResults(
+  @jsonField("size_3") size3: List[MatchResult],
+  @jsonField("size_5") size5: List[MatchResult],
+  @jsonField("size_7") size7: List[MatchResult]
+)
+object TournamentResults:
+  given tournamentResultsEncoder: JsonEncoder[TournamentResults] = DeriveJsonEncoder.gen
+  val empty: TournamentResults                                   = apply(List.empty, List.empty, List.empty)
 
 final case class Tournament private (
   id: Tournament.TournamentID,
@@ -13,12 +24,35 @@ final case class Tournament private (
 ):
   private val zone: ZoneId = ZoneId.systemDefault()
 
+  given Ordering[MatchResult] = Ordering.by { (mr: MatchResult) =>
+    (mr.playerXResult.won, mr.playerOResult.won)
+  }
+
   def play(
     concurrentPlayProcesses: Int = 3,
     concurrentGameProcesses: Int = 1,
     maybeGameplayReporter: Option[GameplayReporter] = None,
     requestTimeout: Duration = Duration.fromSeconds(2)
-  ): ZStream[Scope & Client, Throwable, MatchResult] =
+  ): RIO[Scope & Client, TournamentResults] =
+    val (s3, s5, s7) = (Size.unsafe(3), Size.unsafe(5), Size.unsafe(7))
+    playStream(
+      concurrentPlayProcesses,
+      concurrentGameProcesses,
+      maybeGameplayReporter,
+      requestTimeout
+    ).runFold(TournamentResults.empty) { case (tournamentResults, (gameMatch, matchResult)) =>
+      gameMatch.size match
+        case `s3` => tournamentResults.copy(size3 = (tournamentResults.size3 ++ List(matchResult)).sorted)
+        case `s5` => tournamentResults.copy(size5 = (tournamentResults.size5 ++ List(matchResult)).sorted)
+        case `s7` => tournamentResults.copy(size7 = (tournamentResults.size7 ++ List(matchResult)).sorted)
+    }
+
+  def playStream(
+    concurrentPlayProcesses: Int = 3,
+    concurrentGameProcesses: Int = 1,
+    maybeGameplayReporter: Option[GameplayReporter] = None,
+    requestTimeout: Duration = Duration.fromSeconds(2)
+  ): ZStream[Scope & Client, Throwable, (Match, MatchResult)] =
     ZStream
       .fromIterator(tournamentMatches.keysIterator)
       .flatMap(size => ZStream.fromIterable(tournamentMatches(size)))
@@ -28,13 +62,7 @@ final case class Tournament private (
             concurrentProcesses = concurrentGameProcesses,
             requestTimeout = requestTimeout
           )
-          .tap(matchResult =>
-            zio.Console.printLine(
-              "--- TODO: match results here ---"
-              // MatchResult.matchResultJsonEncoder.encodeJson(matchResult, Some(2))
-              // s"MR => ${mr}"
-            )
-          )
+          .map(gMatch -> _)
       }
 
 object Tournament:

@@ -165,6 +165,14 @@ final case class Game private (
   def wonBy(symbol: Symbol): Boolean = status == Status.Won(symbol)
   def isTie: Boolean                 = status == Status.Tie
 
+  def hasCrashedWith(symbol: Symbol): Boolean = status match
+    case Status.CrashedBy(`symbol`, _) => true
+    case _                             => false
+
+  def hasCrashed: Boolean = status match
+    case _: Status.CrashedBy => true
+    case _                   => false
+
   def show: String =
     grid
       .grouped(size)
