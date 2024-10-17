@@ -6,9 +6,11 @@ import zio.http.QueryParams
 
 import java.util.UUID
 
-enum DecoderError extends RuntimeException:
-  case MissingQueryParameter(name: String) extends DecoderError
-  case MissingPlayingSymbol                extends DecoderError
+enum DecoderError(val message: String) extends RuntimeException(message):
+  case MissingQueryParameter(name: String) extends DecoderError(s"Problem decoding query parameter ${name}")
+  case ProblemDecodingParameterToType(details: String)
+      extends DecoderError(s"Problems decoding query to expected type. With: ${details}")
+  case MissingPlayingSymbol                extends DecoderError(s"Playing symbol is missing")
 
 object GameDecoder:
   import DecoderError.*
@@ -39,6 +41,8 @@ object GameDecoder:
   def decode(queryParams: QueryParams): ZIO[Any, DecoderError, Game] = for
     gid          <- queryParams.readParam("gid")(UUID.fromString)
     maybePlaying <- queryParams.readParam("playing")(_.headOption)
+    rawSize      <- queryParams.readParam("size")(Integer.parseInt)
+    size         <- ZIO.fromEither(Size.of(rawSize)).mapError(th => ProblemDecodingParameterToType(th.getMessage))
     playing      <- fromOption(maybePlaying).orElseFail(MissingPlayingSymbol)
     moves        <-
       fromOption(queryParams.getAll("moves").headOption)
@@ -49,6 +53,6 @@ object GameDecoder:
     playerServerIDX = "pid-x", // not needed for client
     playerServerIDO = "pid-o", // not needed for client
     playing,
-    size = Size.default,
+    size,
     moves
   )

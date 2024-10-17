@@ -56,7 +56,8 @@ object PlayApp extends ZIOCliDefault:
     serverA = ExternalPlayerServer.unsafeFromURL(serverAUrl)
     serverB = ExternalPlayerServer.unsafeFromURL(serverBUrl)
     out    <- Match
-                .playGames(serverA, serverB, numberOfGames.toLong, concurrentProcesses = 3, size)
+                .mk(serverA, serverB, numberOfGames.toLong, size)
+                .playGames(concurrentProcesses = 3)
                 .provide(Client.default.and(Scope.default))
     _      <- printLine(MatchResult.matchResultJsonEncoder.encodeJson(out, Some(2)))
   yield ()

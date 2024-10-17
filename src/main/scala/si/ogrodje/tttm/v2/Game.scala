@@ -44,6 +44,7 @@ enum Status:
   case Tie
   case Pending
   case Won(symbol: Symbol)
+  case CrashedBy(symbol: Symbol, message: String)
 object Status:
   given eventJsonEncoder: JsonEncoder[Status] = DeriveJsonEncoder.gen[Status]
 
@@ -54,7 +55,8 @@ final case class Game private (
   @jsonField("player_server_o_id") playerServerIDO: PlayerServerID,
   playing: Symbol = defaultPlaying,
   moves: Moves = Array.empty[Move],
-  size: Size = Size.default
+  size: Size = Size.default,
+  crashedBy: Option[(Symbol, String)] = None
 ):
   import Status.*
   private def symbolAt: Position => Option[Symbol] = (x, y) =>
@@ -115,12 +117,13 @@ final case class Game private (
     grid.collect { case (None, position) => position }
 
   def status: Status =
-    hasWon(X) -> hasWon(O) match
-      case true -> false => Won(X)
-      case false -> true => Won(O)
-      case true -> true  => Won(X)
-      case _ if isFull   => Tie
-      case _             => Pending
+    (crashedBy, hasWon(X) -> hasWon(O)) match
+      case (Some(symbol -> message), _) => CrashedBy(symbol, message)
+      case (None, true -> false)        => Won(X)
+      case (None, false -> true)        => Won(O)
+      case (None, true -> true)         => Won(X)
+      case _ if isFull                  => Tie
+      case _                            => Pending
 
   private def wonDiagonals(symbol: Symbol): Boolean =
     val minimumSize: Int = size.value match
@@ -162,13 +165,22 @@ final case class Game private (
   def wonBy(symbol: Symbol): Boolean = status == Status.Won(symbol)
   def isTie: Boolean                 = status == Status.Tie
 
+  def hasCrashedWith(symbol: Symbol): Boolean = status match
+    case Status.CrashedBy(`symbol`, _) => true
+    case _                             => false
+
+  def hasCrashed: Boolean = status match
+    case _: Status.CrashedBy => true
+    case _                   => false
+
   def show: String =
     grid
       .grouped(size)
       .map(_.map { case (Some(symbol), _) => symbol; case _ => " " }.mkString(","))
       .mkString("\n")
 
-  def withSwitchPlaying: Game = this.copy(playing = oppositeSymbol(playing))
+  def copyBySwitchingPlaying: Game         = this.copy(playing = oppositeSymbol(playing))
+  def copyAsCrashed(message: String): Game = this.copy(crashedBy = Some(playing -> message))
 
   private def nonEmptyMoves(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
     Validation.fromPredicateWith(new IllegalArgumentException("At least one move is needed."))(moves)(_.nonEmpty)

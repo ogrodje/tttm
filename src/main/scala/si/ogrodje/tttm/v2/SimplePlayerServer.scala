@@ -8,8 +8,7 @@ import zio.{Task, ZIO}
 
 import scala.util.Random
 
-// Picks random empty field. No strategy. This follows the reference implementation.
-final class SimplePlayerServer private (port: Int) extends PlayerServer:
+object SamplePlayerRandomLogic:
   private val computeMove: Game => Either[String, (Symbol, Position)] = game =>
     game.status match
       case Pending =>
@@ -17,7 +16,7 @@ final class SimplePlayerServer private (port: Int) extends PlayerServer:
         Right(game.playing -> randomPosition)
       case _       => Left("Can't do anything.")
 
-  private def handleMove(request: Request): Task[Response] = for
+  def handleMove(request: Request): Task[Response] = for
     game    <- GameDecoder.decode(request.queryParameters)
     _       <- logInfo(s"Playing: ${game.playing}, size: ${game.size}, status: ${game.status}, gid: ${game.gid}")
     response = computeMove(game) match
@@ -25,9 +24,12 @@ final class SimplePlayerServer private (port: Int) extends PlayerServer:
                  case Right((symbol, (x, y))) => Response.text(s"Move:$symbol-$x-$y")
   yield response
 
+// Picks random empty field. No strategy. This follows the reference implementation.
+final class SimplePlayerServer private (port: Int) extends PlayerServer:
+
   private val routes = Routes(
     Method.GET / Root   -> handler(Response.text("Nothing here. I'm just a server playing the game.")),
-    Method.GET / "move" -> handler(handleMove).tapErrorZIO(th => printLine(s"Boom - ${th}"))
+    Method.GET / "move" -> handler(SamplePlayerRandomLogic.handleMove).tapErrorZIO(th => printLine(s"Boom - ${th}"))
   ).transform(
     _.catchAllCause(cause =>
       handler(
