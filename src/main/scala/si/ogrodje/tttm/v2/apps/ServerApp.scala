@@ -36,8 +36,8 @@ object ServerApp extends ZIOAppDefault:
           for
             (serverAUrl, serverBUrl) <-
               ZIO.succeed(
-                serverA.serverEndpoint,
-                serverB.serverEndpoint
+                serverA.serverEndpoint ->
+                  serverB.serverEndpoint
               )
             streamingReporterQueue   <- StreamingReporter.queue
             streamingReporter        <- StreamingReporter.fromQueue(streamingReporterQueue)
