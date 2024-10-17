@@ -21,6 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: shimataro/ssh-key-action@v2
+        if: ${{ github.ref == 'refs/heads/master' }}
         with:
           known_hosts: unnecessary
           key: ${{ secrets.SSH_KEY }}
@@ -58,9 +59,14 @@ jobs:
           cache: 'sbt'
 
       - uses: sbt/setup-sbt@v1
-      - run: sbt "test;docker:publish"
+
+      - run: sbt "test"
+
+      - run: sbt "docker:publish"
+        if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Deploy to production
+        if: ${{ github.ref == 'refs/heads/master' }}
         run: |
           export DOCKER_HOST="ssh://low"
           ./bin/tttm-prod.sh pull && \

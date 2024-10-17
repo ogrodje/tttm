@@ -28,11 +28,13 @@ final case class Player(
   name: PlayerServerName,
   author: AuthorName,
   @jsonField("author_url") authorURL: URL,
-  @jsonField("repository_url") repositoryURL: Option[URL],
   @jsonField("endpoint_url") endpointURL: URL,
-  sizes: Set[Size],
-  tags: Set[String]
-)
+  sizes: Sizes,
+  @jsonField("repository_url") repositoryURL: Option[URL] = None,
+  tags: Set[String] = Set.empty
+) extends PlayerServer:
+  override def id: PlayerServerID             = name.value
+  override def serverEndpoint: ServerEndpoint = endpointURL
 
 object Player:
   given nonEmptyStringDecoder: JsonDecoder[NonEmptyString] =
@@ -46,15 +48,8 @@ object Player:
   given urlDecoder: JsonDecoder[URL] = JsonDecoder[String].mapOrFail(raw => URL.decode(raw).left.map(_.toString))
   given urlEncoder: JsonEncoder[URL] = JsonEncoder[String].contramap(_.toString)
 
-  given sizesDecoder: JsonDecoder[Set[Size]] =
-    JsonDecoder[List[Int]].mapOrFail(
-      _.map(n => Size.of(n))
-        .foldLeft(Right(Set.empty): Either[String, Set[Size]]) { (agg, c) =>
-          c match
-            case Left(th)     => Left(s"Invalid number detected - ${th}")
-            case Right(value) => agg.map(_ ++ Set(value))
-        }
-    )
+  given sizesDecoder: JsonDecoder[Sizes] = JsonDecoder[List[Int]].mapOrFail(Sizes.safe)
+  given sizesEncoder: JsonEncoder[Sizes] = JsonEncoder[List[Int]].contramap(_.toList.map(_.value))
 
   given playerJsonDecoder: JsonDecoder[Player] = DeriveJsonDecoder.gen[Player]
   given playerJsonEncoder: JsonEncoder[Player] = DeriveJsonEncoder.gen[Player]
@@ -94,3 +89,6 @@ object PlayersConfig:
 
   def fromResources: ZIO[Any, Throwable, PlayersConfig] =
     readResource("/players.yml")
+
+  def fromPlayersList(list: List[Player]): PlayersConfig = apply(list)
+  def fromPlayers(players: Player*): PlayersConfig       = apply(players.toList)

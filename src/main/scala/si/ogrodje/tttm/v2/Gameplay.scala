@@ -1,27 +1,29 @@
 package si.ogrodje.tttm.v2
 
-import si.ogrodje.tttm.v2
-import si.ogrodje.tttm.v2.GameplayError.{ParsingError, ServerTimeout}
+import si.ogrodje.tttm.v2.GameplayError.*
 import si.ogrodje.tttm.v2.Status.*
 import zio.*
 import zio.http.*
-import zio.json.*
 import zio.prelude.NonEmptyList
 
 import java.util.UUID
 
-enum GameplayError(val message: String) extends Throwable(message):
-  case ServerTimeout(serverURL: String)           extends GameplayError(s"Server $serverURL has timed-out")
-  case ParsingError(override val message: String) extends GameplayError(message)
+enum GameplayError(playerServer: PlayerServer, val message: String) extends Throwable(message):
+  case ServerTimeout(playerServer: PlayerServer, serverURL: String)
+      extends GameplayError(playerServer, s"[${playerServer.id}] Server $serverURL has timed-out.")
+  case ParsingError(playerServer: PlayerServer, override val message: String)
+      extends GameplayError(playerServer, s"[${playerServer.id}] Gameplay error: $message")
+  case NetworkingError(playerServer: PlayerServer, override val message: String)
+      extends GameplayError(playerServer, s"[${playerServer.id}] Networking or protocol error: $message")
 
 final class Gameplay private (
   gid: GID,
   serverA: PlayerServer,
   serverB: PlayerServer,
   size: Size = Size.default,
-  reporter: GameplayReporter
+  reporter: GameplayReporter,
+  requestTimeout: Duration = Duration.fromSeconds(2)
 ):
-  private val requestTimeout: Duration = Duration.fromSeconds(2)
   private type Servers = NonEmptyList[PlayerServer]
   private def swapServers(servers: Servers): Servers = NonEmptyList(servers.last, servers.head)
 
@@ -37,15 +39,21 @@ final class Gameplay private (
 
   private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, Throwable, Move] = for
     request                   <- mkMoveRequest(server, game)
-    (duration, maybeResponse) <- client.request(request).timeout(requestTimeout).timed
-    response                  <- ZIO.fromOption(maybeResponse).orElseFail(ServerTimeout(server.serverEndpoint.toString))
+    (duration, maybeResponse) <-
+      client
+        .request(request)
+        .timeout(requestTimeout)
+        .timed
+        .mapError(th => NetworkingError(server, s"Networking error with ${th.getMessage}"))
+    response                  <-
+      ZIO.fromOption(maybeResponse).orElseFail(ServerTimeout(server, server.serverEndpoint.toString))
     move                      <-
       response.body.asString
         .flatMap(BodyParser.parse)
-        .mapError(th => ParsingError(s"Player server has failed with: ${th.getMessage}"))
+        .mapError(th => ParsingError(server, s"Player server has failed with: ${th.getMessage}"))
     _                         <-
       reporter.logInfo(
-        s"Received valid response from ${request.url.host.getOrElse("UNKNOWN")} in ${duration.toMillis}ms"
+        s"Received valid response from ${server.id} in ${duration.toMillis}ms"
       )(
         Some(game.gid)
       )
@@ -55,24 +63,33 @@ final class Gameplay private (
     game: Game
   ): ZIO[Scope, Throwable, Game] =
     game.status match
-      case Pending     =>
+      case Pending                    =>
         processRequest(
           client,
           servers = swapServers(servers),
-          game = game.withSwitchPlaying
+          game = game.copyBySwitchingPlaying
         )
-      case Tie         => reporter.logInfo("Tie")(Some(game.gid)).as(game)
-      case Won(symbol) => reporter.logInfo(s"Won by $symbol")(Some(game.gid)).as(game)
+      case Tie                        => reporter.logInfo("Tie")(Some(game.gid)).as(game)
+      case Won(symbol)                => reporter.logInfo(s"Won by $symbol")(Some(game.gid)).as(game)
+      case CrashedBy(symbol, message) =>
+        reporter.logInfo(s"Crashed by $symbol - ${message}")(Some(game.gid)).as(game)
 
   private def processRequest(
     client: Client,
     servers: Servers,
     game: Game
   ): ZIO[Scope, Throwable, Game] = for
-    move        <- requestMove(client, servers.head, game)
-    mutatedGame <- game.appendZIO(move)
-    game        <- handleGame(client, servers)(mutatedGame)
-  yield game
+    moveOrCrash <- requestMove(client, servers.head, game).either
+    out         <-
+      moveOrCrash match
+        case Right(move) =>
+          for
+            mutatedGame <- game.appendZIO(move)
+            game        <- handleGame(client, servers)(mutatedGame)
+          yield game
+        case Left(th)    =>
+          ZIO.succeed(game.copyAsCrashed(th.getMessage))
+  yield out
 
   def play: ZIO[zio.Scope & Client, Throwable, (Game, GameplayResult)] = for
     client           <- ZIO.service[Client]
@@ -91,11 +108,13 @@ object Gameplay:
     serverB: PlayerServer,
     size: Size = Size.default,
     gid: GID = UUID.randomUUID(),
-    maybeGameplayReporter: Option[GameplayReporter] = None
+    maybeGameplayReporter: Option[GameplayReporter] = None,
+    requestTimeout: Duration = Duration.fromSeconds(2)
   ): Gameplay = new Gameplay(
     gid,
     serverA,
     serverB,
     size,
-    maybeGameplayReporter.getOrElse(CLIGameReporter.make(gid))
+    maybeGameplayReporter.getOrElse(CLIGameReporter.make(gid)),
+    requestTimeout
   )

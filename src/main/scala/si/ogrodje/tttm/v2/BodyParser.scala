@@ -13,12 +13,7 @@ object BodyParser:
   private def parseBody(body: String): Either[BodyParserError, Move] =
     "Move:([XO])-(\\d)-(\\d)".r
       .findFirstMatchIn(body)
-      .map { m =>
-        Move(
-          symbol = m.group(1).charAt(0),
-          position = (m.group(2).toInt, m.group(3).toInt)
-        )
-      }
+      .map(m => Move(symbol = m.group(1).charAt(0), position = (m.group(2).toInt, m.group(3).toInt)))
       .toRight(NoMoveFound)
 
   private def maybeError(body: String): Either[BodyParserError, String] =

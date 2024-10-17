@@ -12,4 +12,4 @@ object Size:
 
   def unsafe(n: Int): Size  = of(n).toTry.get
   val default: Size         = unsafe(3)
-  val validSizes: Set[Size] = Set(3, 5, 7).map(unsafe)
+
