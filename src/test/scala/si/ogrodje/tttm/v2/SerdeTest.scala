@@ -61,7 +61,7 @@ object SerdeTest extends ZIOSpecDefault:
 
         withMove <- ZIO.succeed(
                       GameEncoder.encode(
-                        decodedGame.appendUnsafe(X -> (0, 1)).withSwitchPlaying
+                        decodedGame.appendUnsafe(X -> (0, 1)).copyBySwitchingPlaying
                       )
                     )
       yield

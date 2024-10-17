@@ -1,11 +1,13 @@
 package si.ogrodje.tttm.v2
 
-import si.ogrodje.tttm.v2.Match.NumberOfGames
+import si.ogrodje.tttm.v2.Match.{MatchID, NumberOfGames}
 import zio.*
 import zio.ZIO.logInfo
 import zio.http.Client
 import zio.json.*
 import zio.stream.ZStream
+
+import java.util.UUID
 
 @jsonHintNames(SnakeCase)
 final case class MatchPlayerResult(
@@ -36,15 +38,17 @@ object MatchResult:
   val empty: MatchResult                                 = apply(playerXID = "x", playerOID = "o")
 
 final case class Match private (
+  id: MatchID,
   serverA: PlayerServer,
   serverB: PlayerServer,
   numberOfGames: NumberOfGames,
-  size: Size = Size.default,
-  maybeGameplayReporter: Option[GameplayReporter] = None
+  size: Size = Size.default
 ):
 
   def playGames(
-    concurrentProcesses: Int = 4
+    concurrentProcesses: Int = 4,
+    maybeGameplayReporter: Option[GameplayReporter] = None,
+    requestTimeout: Duration = Duration.fromSeconds(2)
   ): ZIO[Scope & Client, Throwable, MatchResult] =
     val serverIDS = (serverA.id, serverB.id)
 
@@ -55,11 +59,19 @@ final case class Match private (
         .map { case (n, i) => (n, if i % 2 == 0 then (serverA, serverB) else (serverB, serverA)) }
         .mapZIOParUnordered(concurrentProcesses) { case (n, servers @ (localServerA, localServerB)) =>
           Gameplay
-            .make(localServerA, localServerB, size, maybeGameplayReporter = maybeGameplayReporter)
+            .make(
+              localServerA,
+              localServerB,
+              size,
+              maybeGameplayReporter = maybeGameplayReporter,
+              requestTimeout = requestTimeout
+            )
             .play
             .map(result => servers -> result)
-            .tap { case (_, (g, result)) =>
-              logInfo(s"Completed game n: $n; Moves: ${g.moves.length}, Status: ${g.status}")
+            .tap { case (_, (g, gameplayResult)) =>
+              val grJson = GameplayResult.gameplayResultJsonEncoder.encodeJson(gameplayResult, Some(2))
+              logInfo(s"Completed game n: $n; Size: ${g.size}, Moves: ${g.moves.length}, Status: ${g.status}")
+              zio.Console.printLine(grJson)
             }
         }
 
@@ -111,23 +123,26 @@ final case class Match private (
   private def attachStatsFromMoves(init: MatchPlayerResult = MatchPlayerResult.empty)(
     moves: List[Move]
   ): MatchPlayerResult =
-    ServerMeasurements.fromMoves(moves) { case (average, median, p99, min, max) =>
-      init.copy(
-        responseAverage = average,
-        responseMedian = median,
-        responseP99 = p99,
-        responseMin = min,
-        responseMax = max
-      )
-    }
+    ServerMeasurements.fromMoves(moves)(
+      { case (average, median, p99, min, max) =>
+        init.copy(
+          responseAverage = average,
+          responseMedian = median,
+          responseP99 = p99,
+          responseMin = min,
+          responseMax = max
+        )
+      },
+      init
+    )
 
 object Match:
   private type NumberOfGames = Long
+  private type MatchID       = UUID
 
   def mk(
     serverA: PlayerServer,
     serverB: PlayerServer,
     numberOfGames: NumberOfGames,
-    size: Size = Size.default,
-    maybeGameplayReporter: Option[GameplayReporter] = None
-  ): Match = apply(serverA, serverB, numberOfGames, size, maybeGameplayReporter)
+    size: Size = Size.default
+  ): Match = apply(UUID.randomUUID(), serverA, serverB, numberOfGames, size)

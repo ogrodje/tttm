@@ -1,5 +1,7 @@
 package si.ogrodje.tttm.v2
 
+import scala.util.Try
+
 trait ServerMeasurements:
   def responseAverage: Double
   def responseMedian: Double
@@ -22,7 +24,7 @@ object ServerMeasurements:
     Max
   )
 
-  def fromMoves[O <: ServerMeasurements](moves: Seq[Move])(
+  private def rawFromMoves[O <: ServerMeasurements](moves: Seq[Move])(
     measurementsF: Measurements => O
   ): O =
     val measurements: Seq[Double] = moves.map(_.duration.toMillis.toDouble)
@@ -45,3 +47,9 @@ object ServerMeasurements:
     measurementsF(
       (average, median, p99, measurements.min, measurements.max)
     )
+
+  def fromMoves[O <: ServerMeasurements](moves: Seq[Move])(
+    measurementsF: Measurements => O,
+    default: O
+  ): O =
+    Try(rawFromMoves(moves)(measurementsF)).getOrElse(default)

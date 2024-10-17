@@ -59,10 +59,12 @@ object ServerApp extends ZIOAppDefault:
                   serverA,
                   serverB,
                   numberOfGames,
-                  size,
-                  Some(streamingReporter)
+                  size
                 )
-                .playGames(concurrentProcesses = 3)
+                .playGames(
+                  concurrentProcesses = 3,
+                  maybeGameplayReporter = Some(streamingReporter)
+                )
                 .foldZIO(
                   th =>
                     logError(th.getMessage) *>

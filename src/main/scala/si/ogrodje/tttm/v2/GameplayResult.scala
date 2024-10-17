@@ -1,6 +1,6 @@
 package si.ogrodje.tttm.v2
 
-import si.ogrodje.tttm.v2.Status.Won
+import si.ogrodje.tttm.v2.Status.{CrashedBy, Won}
 import zio.Duration
 import zio.json.*
 import zio.json.internal.Write
@@ -21,16 +21,22 @@ object GameplayResult:
   given durationJsonEncoder: JsonEncoder[Duration]             = JsonEncoder[Double].contramap(_.toMillis)
   given gameplayResultJsonEncoder: JsonEncoder[GameplayResult] = DeriveJsonEncoder.gen[GameplayResult]
 
-  def fromGame(servers: NonEmptyList[PlayerServer], duration: Duration, game: Game): GameplayResult =
+  def fromGame(
+    servers: NonEmptyList[PlayerServer],
+    duration: Duration,
+    game: Game
+  ): GameplayResult =
     val List(serverA, serverB) = servers.toList
 
     GameplayResult(
       duration,
       game.status,
       maybeWinner = game.status match
-        case Won(`X`) => Some(serverA.id)
-        case Won(`O`) => Some(serverB.id)
-        case _        => None,
+        case Won(`X`)          => Some(serverA.id)
+        case Won(`O`)          => Some(serverB.id)
+        case CrashedBy(`X`, _) => Some(serverB.id) // If server X crashes O wins.
+        case CrashedBy(`O`, _) => Some(serverB.id) // If server O crashes X wins.
+        case _                 => None,
       serverA = ServerResult.fromMoves(game.moves.filter(_.symbol == X)),
       serverB = ServerResult.fromMoves(game.moves.filter(_.symbol == O)),
       moves = game.moves.toList
@@ -38,14 +44,17 @@ object GameplayResult:
 
 @jsonHintNames(SnakeCase)
 final case class ServerResult(
-  @jsonField("response_average_ms") responseAverage: Double,
-  @jsonField("response_median_ms") responseMedian: Double,
-  @jsonField("response_p99_ms") responseP99: Double,
-  @jsonField("response_min_ms") responseMin: Double,
-  @jsonField("response_max_ms") responseMax: Double
+  @jsonField("response_average_ms") responseAverage: Double = -1,
+  @jsonField("response_median_ms") responseMedian: Double = -1,
+  @jsonField("response_p99_ms") responseP99: Double = -1,
+  @jsonField("response_min_ms") responseMin: Double = -1,
+  @jsonField("response_max_ms") responseMax: Double = -1
 ) extends ServerMeasurements
 
 object ServerResult:
-  implicit val schema: Schema[ServerResult]                = DeriveSchema.gen
+  implicit val schema: Schema[ServerResult] = DeriveSchema.gen
+  val empty: ServerResult                   = apply()
+
   given serverResultJsonEncoder: JsonEncoder[ServerResult] = DeriveJsonEncoder.gen[ServerResult]
-  def fromMoves(moves: Array[Move]): ServerResult          = ServerMeasurements.fromMoves(moves)(ServerResult.apply)
+  def fromMoves(moves: Array[Move]): ServerResult          =
+    ServerMeasurements.fromMoves(moves)(ServerResult.apply, ServerResult.empty)
