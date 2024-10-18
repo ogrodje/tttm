@@ -42,7 +42,7 @@ object PlayApp extends ZIOCliDefault:
   ) { case ((shouldScore, rawSize, numberOfGames), _ @(serverA, serverB)) =>
     for
       (serverA, serverB) <- RawURL.parse(serverA).zipPar(RawURL.parse(serverB))
-      size               <- ZIO.fromEither(Size.safe(rawSize.toInt))
+      size               <- Size.safeZIO(rawSize.toInt)
       out                <- play(size, shouldScore, numberOfGames)(serverA, serverB)
     yield out
   }

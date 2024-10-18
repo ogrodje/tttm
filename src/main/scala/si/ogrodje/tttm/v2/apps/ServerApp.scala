@@ -87,7 +87,7 @@ object ServerApp extends ZIOAppDefault:
           serverB        = ExternalPlayerServer.unsafeFromURL(serverBUrl)
           numberOfGames <- req.queryParameters.getAsWithDefault[Long]("number-of-games", 10)
           rawSize       <- req.queryParameters.getAsWithDefault[Int]("size", 3)
-          size          <- ZIO.fromEither(Size.safe(rawSize))
+          size          <- Size.safeZIO(rawSize)
           response      <- sandboxSocketApp(serverA, serverB, size, numberOfGames).toResponse
         yield response
       }.tapErrorZIO(th => logError(s"Boom with ${th.getMessage}"))
@@ -99,10 +99,13 @@ object ServerApp extends ZIOAppDefault:
         )
     ) @@ cors(corsConfig)
 
-  def run = Server
-    .serve(routes)
-    .provide(
-      Server.defaultWithPort(7777),
-      Client.default.and(Scope.default),
-      ZLayer.fromZIO(PlayersConfig.fromResources)
-    )
+  def run: Task[Nothing] = runWithPort()
+
+  def runWithPort(port: Int = 7777): Task[Nothing] =
+    Server
+      .serve(routes)
+      .provide(
+        Server.defaultWithPort(port),
+        Client.default.and(Scope.default),
+        ZLayer.fromZIO(PlayersConfig.fromResources)
+      )
