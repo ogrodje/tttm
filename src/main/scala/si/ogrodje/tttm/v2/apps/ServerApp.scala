@@ -87,7 +87,7 @@ object ServerApp extends ZIOAppDefault:
           serverB        = ExternalPlayerServer.unsafeFromURL(serverBUrl)
           numberOfGames <- req.queryParameters.getAsWithDefault[Long]("number-of-games", 10)
           rawSize       <- req.queryParameters.getAsWithDefault[Int]("size", 3)
-          size          <- ZIO.fromEither(Size.safe(rawSize))
+          size          <- Size.safeZIO(rawSize)
           response      <- sandboxSocketApp(serverA, serverB, size, numberOfGames).toResponse
         yield response
       }.tapErrorZIO(th => logError(s"Boom with ${th.getMessage}"))

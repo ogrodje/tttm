@@ -69,7 +69,7 @@ object GameTest extends ZIOSpecDefault:
       assertTrue(Game.empty.append(X -> (1, 1)).isRight)
     },
     test("size of 5") {
-      val size = Size.safe(5).toTry.get
+      val size = Size.unsafe(5)
       assertTrue(
         Game
           .ofSize(size)
@@ -84,7 +84,7 @@ object GameTest extends ZIOSpecDefault:
       )
     },
     test("tie in 5x5") {
-      val size = Size.safe(5).toTry.get
+      val size = Size.unsafe(5)
       val g    = Game.ofSize(size)
       assertTrue(g.size == size)
     },
