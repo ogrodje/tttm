@@ -1,7 +1,7 @@
 package si.ogrodje.tttm.v2
-import zio.{Task, ZIO}
+import zio.ZIO
+import zio.ZIO.fromOption
 import zio.http.{QueryParams, URL}
-import ZIO.fromOption
 
 trait QueryParamOps:
   enum ParamError extends Exception:
@@ -33,5 +33,5 @@ trait QueryParamOps:
 
     def getAsWithDefault[T](key: String, default: T)(using decoder: Decoder[T]): ZIO[Any, ParamError, T] =
       getAs(key).map(_.getOrElse(default))
-      
+
 object QueryParamOps extends QueryParamOps

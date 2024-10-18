@@ -1,11 +1,12 @@
 package si.ogrodje.tttm.v2
 
+import zio.http.Client
+import zio.json.*
+import zio.stream.ZStream
+import zio.{Duration, RIO, Scope}
+
 import java.time.{LocalDateTime, ZoneId}
 import java.util.UUID
-import zio.{Duration, RIO, Scope, Task, ZIO}
-import zio.http.Client
-import zio.json.{jsonField, jsonMemberNames, DeriveJsonEncoder, JsonEncoder, SnakeCase}
-import zio.stream.ZStream
 
 @jsonMemberNames(SnakeCase)
 final case class TournamentResults(

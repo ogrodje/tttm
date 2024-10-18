@@ -1,8 +1,8 @@
 package si.ogrodje.tttm.v2
 
-import zio.{IO, Task, Trace, Unsafe, ZIO}
 import zio.ZIO.fromOption
 import zio.http.QueryParams
+import zio.{Task, Trace, ZIO}
 
 import java.util.UUID
 
@@ -42,7 +42,7 @@ object GameDecoder:
     gid          <- queryParams.readParam("gid")(UUID.fromString)
     maybePlaying <- queryParams.readParam("playing")(_.headOption)
     rawSize      <- queryParams.readParam("size")(Integer.parseInt)
-    size         <- ZIO.fromEither(Size.of(rawSize)).mapError(th => ProblemDecodingParameterToType(th.getMessage))
+    size         <- ZIO.fromEither(Size.safe(rawSize)).mapError(th => ProblemDecodingParameterToType(th.getMessage))
     playing      <- fromOption(maybePlaying).orElseFail(MissingPlayingSymbol)
     moves        <-
       fromOption(queryParams.getAll("moves").headOption)

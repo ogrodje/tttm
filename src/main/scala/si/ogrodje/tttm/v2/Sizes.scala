@@ -1,6 +1,5 @@
 package si.ogrodje.tttm.v2
 import zio.prelude.NonEmptySet
-import eu.timepit.refined.auto.*
 
 type Sizes = NonEmptySet[Size]
 
@@ -10,10 +9,10 @@ object Sizes:
   def safe(sizes: List[Int]): Either[String, NonEmptySet[Size]] = for
     rSet  <-
       sizes
-        .map(Size.of)
+        .map(Size.safe)
         .foldLeft(Right(Set.empty): Either[String, Set[Size]]) { (agg, c) =>
           c match
-            case Left(th)     => Left(s"Invalid number detected - ${th}")
+            case Left(th)     => Left(s"Invalid number detected - $th")
             case Right(value) => agg.map(_ ++ Set(value))
         }
     sizes <- NonEmptySet
@@ -23,7 +22,7 @@ object Sizes:
 
   def unsafe(sizes: List[Int]): Sizes =
     safe(sizes).left
-      .map(m => new RuntimeException(s"Size creation failed with ${m}"))
+      .map(m => new RuntimeException(s"Size creation failed with $m"))
       .toTry
       .get
 

@@ -140,7 +140,7 @@ final case class Match private (
   private def attachStatsFromMoves(init: MatchPlayerResult = MatchPlayerResult.empty)(
     moves: List[Move]
   ): MatchPlayerResult =
-    ServerMeasurements.fromMoves(moves)(
+    ServerMeasurements.fromMoves(moves.toArray)(
       { case (average, median, p99, min, max) =>
         init.copy(
           responseAverage = average,

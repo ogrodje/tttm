@@ -1,6 +1,6 @@
 package si.ogrodje.tttm.v2
 
-import zio.Chunk
+import zio.{Chunk, UIO, ZIO}
 import zio.http.QueryParams
 
 object GameEncoder:
@@ -16,3 +16,5 @@ object GameEncoder:
         "moves"   -> Chunk(encodedMoves(game))
       )
     )
+
+  def encodeZIO(game: Game): UIO[QueryParams] = ZIO.succeed(encode(game))

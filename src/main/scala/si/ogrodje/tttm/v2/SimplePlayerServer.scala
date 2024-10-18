@@ -26,10 +26,11 @@ object SamplePlayerRandomLogic:
 
 // Picks random empty field. No strategy. This follows the reference implementation.
 final class SimplePlayerServer private (port: Int) extends PlayerServer:
-
   private val routes = Routes(
     Method.GET / Root   -> handler(Response.text("Nothing here. I'm just a server playing the game.")),
-    Method.GET / "move" -> handler(SamplePlayerRandomLogic.handleMove).tapErrorZIO(th => printLine(s"Boom - ${th}"))
+    Method.GET / "move" -> handler(req => SamplePlayerRandomLogic.handleMove(req)).tapErrorZIO(th =>
+      printLine(s"Boom - ${th}")
+    )
   ).transform(
     _.catchAllCause(cause =>
       handler(

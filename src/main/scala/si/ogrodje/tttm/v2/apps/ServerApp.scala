@@ -1,15 +1,13 @@
 package si.ogrodje.tttm.v2.apps
 
-import zio.*
-import si.ogrodje.tttm.v2.QueryParamOps.*
 import si.ogrodje.tttm.v2.*
+import si.ogrodje.tttm.v2.QueryParamOps.*
 import si.ogrodje.tttm.v2.server.*
+import zio.*
 import zio.ZIO.{logError, logInfo}
-import zio.http.ChannelEvent.{Read, UserEvent, UserEventTriggered}
 import zio.http.*
-import zio.http.Header.{AccessControlAllowOrigin, Origin}
+import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
 import zio.http.Middleware.{cors, CorsConfig}
-import zio.json.*
 import zio.logging.backend.SLF4J
 
 object ServerApp extends ZIOAppDefault:
@@ -34,11 +32,7 @@ object ServerApp extends ZIOAppDefault:
       channel.receiveAll {
         case UserEventTriggered(UserEvent.HandshakeComplete) =>
           for
-            (serverAUrl, serverBUrl) <-
-              ZIO.succeed(
-                serverA.serverEndpoint ->
-                  serverB.serverEndpoint
-              )
+            (serverAUrl, serverBUrl) <- ZIO.succeed(serverA.serverEndpoint -> serverB.serverEndpoint)
             streamingReporterQueue   <- StreamingReporter.queue
             streamingReporter        <- StreamingReporter.fromQueue(streamingReporterQueue)
             _                        <-
@@ -66,9 +60,7 @@ object ServerApp extends ZIOAppDefault:
                   maybeGameplayReporter = Some(streamingReporter)
                 )
                 .foldZIO(
-                  th =>
-                    logError(th.getMessage) *>
-                      channel.send(MatchError(s"Match error: ${th.getMessage}")),
+                  th => logError(th.getMessage) *> channel.send(MatchError(s"Match error: ${th.getMessage}")),
                   matchResult => channel.send(MatchCompleted("Match has completed.", matchResult))
                 )
                 .race(
@@ -95,7 +87,7 @@ object ServerApp extends ZIOAppDefault:
           serverB        = ExternalPlayerServer.unsafeFromURL(serverBUrl)
           numberOfGames <- req.queryParameters.getAsWithDefault[Long]("number-of-games", 10)
           rawSize       <- req.queryParameters.getAsWithDefault[Int]("size", 3)
-          size          <- ZIO.fromEither(Size.of(rawSize))
+          size          <- ZIO.fromEither(Size.safe(rawSize))
           response      <- sandboxSocketApp(serverA, serverB, size, numberOfGames).toResponse
         yield response
       }.tapErrorZIO(th => logError(s"Boom with ${th.getMessage}"))

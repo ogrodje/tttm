@@ -1,23 +1,15 @@
 package si.ogrodje.tttm.v2
 
-import eu.timepit.refined.*
-import eu.timepit.refined.auto.*
 import eu.timepit.refined.api.*
 import eu.timepit.refined.predicates.all.NonEmpty
-import eu.timepit.refined.generic.*
-import eu.timepit.refined.string.*
 import zio.*
 import zio.http.URL
-
-import java.nio.file.Path
 import zio.json.*
 import zio.json.yaml.*
-import zio.stream.{Stream, ZStream}
+import zio.stream.ZStream
 
-import java.io.FileNotFoundException
+import java.nio.file.Path
 import scala.io.*
-import scala.jdk.StreamConverters.*
-import scala.jdk.CollectionConverters.*
 import scala.util.Try
 
 type NonEmptyString   = String Refined NonEmpty
@@ -42,7 +34,7 @@ object Player:
   given nonEmptyStringEncoder: JsonEncoder[NonEmptyString] =
     JsonEncoder[String].contramap(_.value)
 
-  given sizeDecoder: JsonDecoder[Size] = JsonDecoder[Int].mapOrFail(n => Size.of(n).left.map(_.toString))
+  given sizeDecoder: JsonDecoder[Size] = JsonDecoder[Int].mapOrFail(n => Size.safe(n).left.map(_.toString))
   given sizeEncoder: JsonEncoder[Size] = JsonEncoder[Int].contramap(_.value)
 
   given urlDecoder: JsonDecoder[URL] = JsonDecoder[String].mapOrFail(raw => URL.decode(raw).left.map(_.toString))

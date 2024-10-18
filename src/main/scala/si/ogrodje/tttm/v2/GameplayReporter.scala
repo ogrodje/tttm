@@ -1,7 +1,6 @@
 package si.ogrodje.tttm.v2
 
 import zio.ZIO.{logDebug as zLogDebug, logError as zLogError, logInfo as zLogInfo}
-import si.ogrodje.tttm.v2.Status.*
 import zio.json.*
 import zio.{Queue, Task, UIO, ZIO}
 import zio.stream.*

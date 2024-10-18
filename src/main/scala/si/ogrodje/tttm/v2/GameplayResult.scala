@@ -3,7 +3,6 @@ package si.ogrodje.tttm.v2
 import si.ogrodje.tttm.v2.Status.{CrashedBy, Won}
 import zio.Duration
 import zio.json.*
-import zio.json.internal.Write
 import zio.prelude.NonEmptyList
 import zio.schema.{DeriveSchema, Schema}
 
@@ -19,7 +18,7 @@ final case class GameplayResult(
 )
 object GameplayResult:
   implicit val schema: Schema[GameplayResult]                  = DeriveSchema.gen
-  given durationJsonEncoder: JsonEncoder[Duration]             = JsonEncoder[Double].contramap(_.toMillis)
+  given durationJsonEncoder: JsonEncoder[Duration]             = JsonEncoder[Double].contramap(_.toMillis.toDouble)
   given gameplayResultJsonEncoder: JsonEncoder[GameplayResult] = DeriveJsonEncoder.gen[GameplayResult]
 
   def fromGame(

@@ -9,6 +9,8 @@ import zio.prelude.NonEmptyList
 import java.util.UUID
 
 enum GameplayError(playerServer: PlayerServer, val message: String) extends Throwable(message):
+  case RequestBuildingError(playerServer: PlayerServer, override val message: String)
+      extends GameplayError(playerServer, s"[${playerServer.id}] Request building has failed with $message")
   case ServerTimeout(playerServer: PlayerServer, serverURL: String)
       extends GameplayError(playerServer, s"[${playerServer.id}] Server $serverURL has timed-out.")
   case ParsingError(playerServer: PlayerServer, override val message: String)
@@ -28,7 +30,7 @@ final class Gameplay private (
   private def swapServers(servers: Servers): Servers = NonEmptyList(servers.last, servers.head)
 
   private def mkMoveRequest(playerServer: PlayerServer, game: Game): Task[Request] = for
-    queryParams <- ZIO.attempt(GameEncoder.encode(game))
+    queryParams <- GameEncoder.encodeZIO(game)
     endpoint     = playerServer.serverEndpoint
     request      = Request.get(url = endpoint).updatePath(_ ++ Path("/move")).setQueryParams(queryParams)
     _           <-
@@ -37,8 +39,9 @@ final class Gameplay private (
       )
   yield request
 
-  private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, Throwable, Move] = for
-    request                   <- mkMoveRequest(server, game)
+  private def requestMove(client: Client, server: PlayerServer, game: Game): ZIO[Scope, GameplayError, Move] = for
+    request                   <-
+      mkMoveRequest(server, game).mapError(th => RequestBuildingError(server, th.getMessage))
     (duration, maybeResponse) <-
       client
         .request(request)
@@ -72,7 +75,7 @@ final class Gameplay private (
       case Tie                        => reporter.logInfo("Tie")(Some(game.gid)).as(game)
       case Won(symbol)                => reporter.logInfo(s"Won by $symbol")(Some(game.gid)).as(game)
       case CrashedBy(symbol, message) =>
-        reporter.logInfo(s"Crashed by $symbol - ${message}")(Some(game.gid)).as(game)
+        reporter.logInfo(s"Crashed by $symbol with $message")(Some(game.gid)).as(game)
 
   private def processRequest(
     client: Client,
@@ -82,13 +85,13 @@ final class Gameplay private (
     moveOrCrash <- requestMove(client, servers.head, game).either
     out         <-
       moveOrCrash match
-        case Right(move) =>
+        case Right(move)         =>
           for
             mutatedGame <- game.appendZIO(move)
             game        <- handleGame(client, servers)(mutatedGame)
           yield game
-        case Left(th)    =>
-          ZIO.succeed(game.copyAsCrashed(th.getMessage))
+        case Left(gameplayError) =>
+          ZIO.succeed(game.copyAsCrashed(gameplayError.getMessage))
   yield out
 
   def play: ZIO[zio.Scope & Client, Throwable, (Game, GameplayResult)] = for
@@ -97,7 +100,7 @@ final class Gameplay private (
     game              = Game.make(gid, playerServerIDX = serverA.id, playerServerIDO = serverB.id, size = size)
     (duration, game) <- processRequest(client, servers, game).timed
     _                <-
-      reporter.logInfo(s"Game completed. Status: ${game.status}, moves: ${game.moves.length}")(
+      reporter.logInfo(s"Game completed. Status: ${game.status}. Number of moves: ${game.moves.length}")(
         Some(game.gid)
       )
   yield game -> GameplayResult.fromGame(servers, duration, game)

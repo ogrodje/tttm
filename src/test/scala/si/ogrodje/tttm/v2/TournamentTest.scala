@@ -92,7 +92,7 @@ object TournamentTest extends ZIOSpecDefault:
         tournamentResults <-
           tournament
             .play(requestTimeout = Duration.fromMillis(200L))
-            .provideSome[Client with Driver](TestServer.layer.and(Scope.default))
+            .provideSome[Client & Driver](TestServer.layer.and(Scope.default))
       yield tournamentResults).provide(
         TestServer.layer,
         ZLayer.succeed(Server.Config.default.onAnyOpenPort),

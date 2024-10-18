@@ -24,12 +24,12 @@ object ServerMeasurements:
     Max
   )
 
-  private def rawFromMoves[O <: ServerMeasurements](moves: Seq[Move])(
+  private def rawFromMoves[O <: ServerMeasurements](moves: Array[Move])(
     measurementsF: Measurements => O
   ): O =
-    val measurements: Seq[Double] = moves.map(_.duration.toMillis.toDouble)
+    val measurements = moves.map(_.duration.toMillis.toDouble)
     if measurements.isEmpty then throw new IllegalArgumentException("Moves array cannot be empty")
-    val average                   = measurements.sum / measurements.length.toDouble
+    val average      = measurements.sum / measurements.length.toDouble
 
     // Sort array for median and p99 calculations
     val sorted = measurements.sorted
@@ -48,7 +48,7 @@ object ServerMeasurements:
       (average, median, p99, measurements.min, measurements.max)
     )
 
-  def fromMoves[O <: ServerMeasurements](moves: Seq[Move])(
+  def fromMoves[O <: ServerMeasurements](moves: Array[Move])(
     measurementsF: Measurements => O,
     default: O
   ): O =

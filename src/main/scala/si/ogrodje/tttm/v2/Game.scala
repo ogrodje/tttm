@@ -1,14 +1,9 @@
 package si.ogrodje.tttm.v2
 
-import eu.timepit.refined.*
-import eu.timepit.refined.api.{RefType, Refined}
 import eu.timepit.refined.auto.*
-import eu.timepit.refined.boolean.*
-import eu.timepit.refined.generic.*
-import eu.timepit.refined.string.*
 import zio.json.*
-import zio.{Duration, Task, ZIO}
 import zio.prelude.{NonEmptySet, Validation}
+import zio.{Duration, RIO, Task, ZIO}
 
 import java.util.UUID
 import scala.annotation.targetName
@@ -45,8 +40,27 @@ enum Status:
   case Pending
   case Won(symbol: Symbol)
   case CrashedBy(symbol: Symbol, message: String)
+
+  override def toString: String = this match
+    case Status.Tie                        => "Tie"
+    case Status.Pending                    => "Pending"
+    case Status.Won(symbol)                => s"Won by $symbol"
+    case Status.CrashedBy(symbol, message) => s"Crashed by symbol $symbol with: $message"
+
 object Status:
   given eventJsonEncoder: JsonEncoder[Status] = DeriveJsonEncoder.gen[Status]
+
+enum GameError(val message: String) extends RuntimeException(message):
+  case NoMovesPresent                 extends GameError("At least one move is needed.")
+  case InvalidSymbol                  extends GameError("Only X or O symbols are allowed")
+  case InvalidSequence(symbols: Seq[Symbol])
+      extends GameError(s"Invalid sequence of symbols: ${symbols.mkString(", ")}")
+  case InvalidFirstMove               extends GameError("First move needs to be X")
+  case InvalidAppending(errors: List[GameError])
+      extends GameError(s"Invalid appending with errors: ${errors.map(_.message).mkString(", ")} ")
+  case CantOverrideMove(symbol: Symbol, position: Position)
+      extends GameError(s"Can't add move $symbol to $position because if would override existing one.")
+  case AppendError(thMessage: String) extends GameError(s"Invalid appending with error ${thMessage}")
 
 @jsonHintNames(SnakeCase)
 final case class Game private (
@@ -59,6 +73,8 @@ final case class Game private (
   crashedBy: Option[(Symbol, String)] = None
 ):
   import Status.*
+  import GameError.*
+
   private def symbolAt: Position => Option[Symbol] = (x, y) =>
     moves.find { case Move(_, (px, py), _, _) => px == x && py == y }.map(_._1)
 
@@ -182,15 +198,15 @@ final case class Game private (
   def copyBySwitchingPlaying: Game         = this.copy(playing = oppositeSymbol(playing))
   def copyAsCrashed(message: String): Game = this.copy(crashedBy = Some(playing -> message))
 
-  private def nonEmptyMoves(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
-    Validation.fromPredicateWith(new IllegalArgumentException("At least one move is needed."))(moves)(_.nonEmpty)
+  private def nonEmptyMoves(moves: Seq[Move]): Validation[GameError, Seq[Move]] =
+    Validation.fromPredicateWith(NoMovesPresent)(moves)(_.nonEmpty)
 
-  private def validateSymbols(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
-    Validation.fromPredicateWith(new IllegalArgumentException("Only X or O symbols are allowed"))(moves)(
+  private def validateSymbols(moves: Seq[Move]): Validation[GameError, Seq[Move]] =
+    Validation.fromPredicateWith(InvalidSymbol)(moves)(
       _.forall { case Move(symbol, _, _, _) => validSymbols.contains(symbol) }
     )
 
-  private def validSequence(moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
+  private def validSequence(moves: Seq[Move]): Validation[GameError, Seq[Move]] =
     if moves.isEmpty then Validation.succeed(moves)
     else
       Validation
@@ -200,14 +216,14 @@ final case class Game private (
           case Seq(_, _)                                   => false
           case _                                           => true
         })
-        .mapError(_ => new RuntimeException(s"Invalid sequence of symbols: ${moves.map(_._1).mkString(", ")}"))
+        .mapError(_ => InvalidSequence(moves.map(_.symbol)))
 
-  private def validateFirstMove(game: Game, moves: Seq[Move]): Validation[Throwable, Seq[Move]] =
-    Validation.fromPredicateWith(new RuntimeException("First move needs to be X"))((game.moves ++ moves).toSeq)(
+  private def validateFirstMove(game: Game, moves: Seq[Move]): Validation[GameError, Seq[Move]] =
+    Validation.fromPredicateWith(InvalidFirstMove)((game.moves ++ moves).toSeq)(
       _.headOption.exists { case Move(symbol, _, _, _) => symbol == X }
     )
 
-  private def validateAppend(game: Game, moves: Move*): Validation[Throwable, Seq[Move]] =
+  private def validateAppend(game: Game, moves: Move*): Validation[GameError, Seq[Move]] =
     nonEmptyMoves(moves.toSeq)
       .flatMap(validateSymbols)
       .flatMap(validSequence)
@@ -219,28 +235,29 @@ final case class Game private (
   def appendUnsafe(moves: (Symbol, Position)*): Game =
     append(moves.map((symbol, position) => Move.of(symbol, position))*).toTry.get
 
-  def append(moves: Move*): Either[Throwable, Game] = validateAppend(this, moves*).fold(
-    err => Left(new RuntimeException(err.mkString(", "))),
-    _.foldLeft[Either[Throwable, Game]](Right(this)) {
+  def append(moves: Move*): Either[GameError, Game] = validateAppend(this, moves*).fold(
+    err => Left(InvalidAppending(err.toList)),
+    _.foldLeft[Either[GameError, Game]](Right(this)) {
       case (Right(game), move @ Move(symbol, position @ (x, y), _, _)) =>
         Either.cond(
           !game.moves.exists { case Move(_, pos, _, _) => pos == position },
           game.copy(moves = game.moves :+ move),
-          new RuntimeException(s"Can't add move $symbol to $x,$y because if would override existing one.")
+          CantOverrideMove(symbol, position)
         )
-      case (left, _)                                                   => left
+      case (left, _)                                                   =>
+        left.left.map(th => AppendError(th.getMessage))
     }
   )
 
   @targetName("appendFromTuples")
-  def append(symbolMoves: (Symbol, Position)*): Either[Throwable, Game] =
+  def append(symbolMoves: (Symbol, Position)*): Either[GameError, Game] =
     append(symbolMoves.map(Move.of)*)
 
   @targetName("appendFromEmpty")
-  def append(symbolMoves: Seq[Move] = Seq.empty): Either[Throwable, Game] =
+  def append(symbolMoves: Seq[Move] = Seq.empty): Either[GameError, Game] =
     append(symbolMoves*)
 
-  def appendZIO(moves: Move*): Task[Game] = ZIO.fromEither(append(moves*))
+  def appendZIO(moves: Move*): ZIO[Any, GameError, Game] = ZIO.fromEither(append(moves*))
 
 object Game:
   given sizeEncoder: JsonEncoder[Size]     = JsonEncoder[Int].contramap(_.value)
