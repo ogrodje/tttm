@@ -26,6 +26,7 @@ lazy val root = (project in file("."))
     )
   )
   .settings(
+    assembly / mainClass             := Some("si.ogrodje.tttm.v2.apps.MainApp"),
     assembly / assemblyJarName       := "tttm.jar",
     assembly / assemblyMergeStrategy := {
       case PathList("module-info.class")                        =>
