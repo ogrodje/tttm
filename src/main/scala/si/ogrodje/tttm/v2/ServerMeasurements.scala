@@ -8,20 +8,23 @@ trait ServerMeasurements:
   def responseP99: Double
   def responseMax: Double
   def responseMin: Double
+  def numberOfMoves: Int
 
 object ServerMeasurements:
-  private type BaseValue    = Double
-  private type Average      = BaseValue
-  private type Median       = BaseValue
-  private type P99          = BaseValue
-  private type Min          = BaseValue
-  private type Max          = BaseValue
-  private type Measurements = (
+  private type BaseValue     = Double
+  private type Average       = BaseValue
+  private type Median        = BaseValue
+  private type P99           = BaseValue
+  private type Min           = BaseValue
+  private type Max           = BaseValue
+  private type NumberOfMoves = Int
+  private type Measurements  = (
     Average,
     Median,
     P99,
     Min,
-    Max
+    Max,
+    NumberOfMoves
   )
 
   private def rawFromMoves[O <: ServerMeasurements](moves: Array[Move])(
@@ -45,7 +48,7 @@ object ServerMeasurements:
     val p99      = sorted(p99Index)
 
     measurementsF(
-      (average, median, p99, measurements.min, measurements.max)
+      (average, median, p99, measurements.min, measurements.max, moves.length)
     )
 
   def fromMoves[O <: ServerMeasurements](moves: Array[Move])(

@@ -114,8 +114,9 @@ object MainApp extends ZIOCliDefault:
   ): Task[Unit] = for
     _                 <-
       logInfo(
-        s"Starting tournament with number of games: $numberOfGames, storing results: $storeResults, write: ${maybeWriteTo
-            .map(_.toAbsolutePath)}"
+        s"Starting tournament with number of games: $numberOfGames, " +
+          s"storing results: $storeResults, " +
+          s"write: ${maybeWriteTo.map(_.toAbsolutePath)}"
       )
     playersConfig     <- PlayersConfig.fromDefaultFile
     tournamentResults <-

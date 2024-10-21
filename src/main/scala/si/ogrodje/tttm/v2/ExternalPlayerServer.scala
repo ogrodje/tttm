@@ -15,6 +15,6 @@ trait PlayerServer:
 final case class ExternalPlayerServer private (serverEndpoint: ServerEndpoint) extends PlayerServer
 object ExternalPlayerServer:
   def fromString(raw: String): ZIO[Any, MalformedURLException, ExternalPlayerServer] =
-    ZIO.fromEither(URL.decode(raw)).map(apply)
+    ZIO.from(URL.decode(raw)).map(apply)
 
-  def unsafeFromURL(url: URL): ExternalPlayerServer = new ExternalPlayerServer(url)
+  def unsafeFromURL(url: URL): ExternalPlayerServer = apply(url)
