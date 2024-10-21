@@ -81,18 +81,10 @@ final class Gameplay private (
     client: Client,
     servers: Servers,
     game: Game
-  ): ZIO[Scope, Throwable, Game] = for
-    moveOrCrash <- requestMove(client, servers.head, game).either
-    out         <-
-      moveOrCrash match
-        case Right(move)         =>
-          for
-            mutatedGame <- game.appendZIO(move)
-            game        <- handleGame(client, servers)(mutatedGame)
-          yield game
-        case Left(gameplayError) =>
-          ZIO.succeed(game.copyAsCrashed(gameplayError.getMessage))
-  yield out
+  ): ZIO[Scope, Throwable, Game] = requestMove(client, servers.head, game).either.flatMap {
+    case Right(move)         => game.appendZIO(move).flatMap(handleGame(client, servers))
+    case Left(gameplayError) => ZIO.succeed(game.copyAsCrashed(gameplayError.getMessage))
+  }
 
   def play: ZIO[zio.Scope & Client, Throwable, (Game, GameplayResult)] = for
     client           <- ZIO.service[Client]

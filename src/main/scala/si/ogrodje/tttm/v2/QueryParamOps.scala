@@ -1,7 +1,11 @@
 package si.ogrodje.tttm.v2
-import zio.ZIO
+import zio.{IO, RIO, ZIO}
 import zio.ZIO.fromOption
 import zio.http.{QueryParams, URL}
+import ZIO.{attempt, fail, from, fromEither, fromTry, succeed}
+
+import java.util.UUID
+import scala.util.Try
 
 trait QueryParamOps:
   enum ParamError extends Exception:
@@ -10,11 +14,30 @@ trait QueryParamOps:
 
   import ParamError.*
 
-  type Decoder[+T] = String => ZIO[Any, ParamError, T]
-  given intDecoder: Decoder[Int] = s => ZIO.attempt(Integer.parseInt(s)).mapError(th => DecodingError(th.getMessage))
-  given Decoder[URL]             = s => ZIO.fromEither(URL.decode(s)).mapError(th => DecodingError(th.getMessage))
-  given Decoder[Long]            = s =>
-    intDecoder(s).flatMap(s => ZIO.attempt(s.toLong)).mapError(th => DecodingError(th.getMessage))
+  private type Decoder[+T] = String => IO[ParamError, T]
+  given intDecoder: Decoder[Int] = s => attempt(Integer.parseInt(s)).mapError(th => DecodingError(th.getMessage))
+  given Decoder[URL]             = s => fromEither(URL.decode(s)).mapError(th => DecodingError(th.getMessage))
+  given Decoder[Long]            = s => intDecoder(s).flatMap(s => attempt(s.toLong)).mapError(th => DecodingError(th.getMessage))
+  given Decoder[UUID]            = s => fromTry(Try(UUID.fromString(s))).mapError(th => DecodingError(th.getMessage))
+
+  given Decoder[Symbol] = s =>
+    fromTry(Try(s.charAt(0)))
+      .map(s => s -> validSymbols.contains(s))
+      .flatMap {
+        case (s, true) => succeed(s)
+        case _         => fail(DecodingError("Invalid or missing symbol."))
+      }
+      .orElseFail(DecodingError("Problem decoding symbol"))
+
+  given Decoder[Size] =
+    s =>
+      intDecoder(s)
+        .flatMap(sInt => from(Size.safe(sInt)))
+        .mapError(th => DecodingError(th.getMessage))
+
+  given [T](using decoder: Decoder[T]): Decoder[Option[T]] = s =>
+    if s.isEmpty then ZIO.none
+    else decoder(s).map(Some(_))
 
   extension (queryPrams: QueryParams)
     def requiredAs[T](key: String)(using decoder: Decoder[T]): ZIO[Any, ParamError, T] =

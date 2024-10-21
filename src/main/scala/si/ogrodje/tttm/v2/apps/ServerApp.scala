@@ -27,50 +27,43 @@ object ServerApp extends ZIOAppDefault:
     serverB: PlayerServer,
     size: Size,
     numberOfGames: Long
-  ): WebSocketApp[zio.Scope & Client] =
-    Handler.webSocket { channel =>
-      channel.receiveAll {
-        case UserEventTriggered(UserEvent.HandshakeComplete) =>
-          for
-            (serverAUrl, serverBUrl) <- ZIO.succeed(serverA.serverEndpoint -> serverB.serverEndpoint)
-            streamingReporterQueue   <- StreamingReporter.queue
-            streamingReporter        <- StreamingReporter.fromQueue(streamingReporterQueue)
-            _                        <-
-              logInfo(s"Starting game between $serverAUrl and $serverBUrl w/ $numberOfGames, size: $size")
-            _                        <-
-              channel.send(
-                Greet(
-                  s"Hello. Let's play a match between $serverA and $serverBUrl, size: $size, number of games: $numberOfGames",
-                  serverAUrl,
-                  serverBUrl,
-                  size.value,
-                  numberOfGames
-                )
+  ): WebSocketApp[zio.Scope & Client] = Handler.webSocket { channel =>
+    channel.receiveAll {
+      case UserEventTriggered(UserEvent.HandshakeComplete) =>
+        for
+          (serverAUrl, serverBUrl) <- ZIO.succeed(serverA.serverEndpoint -> serverB.serverEndpoint)
+          streamingReporterQueue   <- StreamingReporter.queue
+          streamingReporter        <- StreamingReporter.fromQueue(streamingReporterQueue)
+          _                        <-
+            logInfo(s"Starting game between $serverAUrl and $serverBUrl w/ $numberOfGames, size: $size")
+          _                        <-
+            channel.send(
+              Greet(
+                s"Hello. Let's play a match between $serverA and $serverBUrl, size: $size, number of games: $numberOfGames",
+                serverAUrl,
+                serverBUrl,
+                size.value,
+                numberOfGames
               )
-            _                        <-
-              Match
-                .mk(
-                  serverA,
-                  serverB,
-                  numberOfGames,
-                  size
-                )
-                .playGames(
-                  concurrentProcesses = 3,
-                  maybeGameplayReporter = Some(streamingReporter)
-                )
-                .foldZIO(
-                  th => logError(th.getMessage) *> channel.send(MatchError(s"Match error: ${th.getMessage}")),
-                  matchResult => channel.send(MatchCompleted("Match has completed.", matchResult))
-                )
-                .race(
-                  streamingReporter.listenWrite(rm => channel.send(GameMessage(rm.toMessage, rm)))
-                )
-            _                        <- channel.shutdown
-          yield ()
-        case _                                               => ZIO.unit
-      }
+            )
+
+          _ <-
+            Match
+              .mk(serverA, serverB, numberOfGames, size)
+              .playGames(concurrentProcesses = 3, maybeGameplayReporter = Some(streamingReporter))
+              .foldZIO(
+                th => logError(th.getMessage) *> channel.send(MatchError(s"Match error: ${th.getMessage}")),
+                matchResult => channel.send(MatchCompleted("Match has completed.", matchResult))
+              )
+              .race(
+                streamingReporter.listenWrite(rm => channel.send(GameMessage(rm.toMessage, rm)))
+              )
+          _ <- channel.shutdown
+        yield ()
+
+      case _ => ZIO.unit
     }
+  }
 
   private val routes: Routes[Scope & Client & PlayersConfig, Nothing] =
     Routes(
@@ -87,7 +80,7 @@ object ServerApp extends ZIOAppDefault:
           serverB        = ExternalPlayerServer.unsafeFromURL(serverBUrl)
           numberOfGames <- req.queryParameters.getAsWithDefault[Long]("number-of-games", 10)
           rawSize       <- req.queryParameters.getAsWithDefault[Int]("size", 3)
-          size          <- ZIO.fromEither(Size.safe(rawSize))
+          size          <- Size.safeZIO(rawSize)
           response      <- sandboxSocketApp(serverA, serverB, size, numberOfGames).toResponse
         yield response
       }.tapErrorZIO(th => logError(s"Boom with ${th.getMessage}"))
@@ -99,10 +92,14 @@ object ServerApp extends ZIOAppDefault:
         )
     ) @@ cors(corsConfig)
 
-  def run = Server
-    .serve(routes)
-    .provide(
-      Server.defaultWithPort(7777),
-      Client.default.and(Scope.default),
-      ZLayer.fromZIO(PlayersConfig.fromResources)
-    )
+  def run: Task[Nothing] = runWithPort()
+
+  def runWithPort(port: Int = 7777): Task[Nothing] =
+    logInfo(s"Booting server on port ${port}") *>
+      Server
+        .serve(routes)
+        .provide(
+          Server.defaultWithPort(port),
+          Client.default.and(Scope.default),
+          ZLayer.fromZIO(PlayersConfig.fromResources)
+        )
