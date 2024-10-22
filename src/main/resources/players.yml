@@ -62,3 +62,11 @@ players:
     repository_url: https://github.com/tavsec/ttterminator
     endpoint_url: https://ttterminator.app.timotejavsec.com/
     sizes: [ 3 ]
+
+  - name: rusty-tttm
+    author: Andraz Vrhovec
+    tags: [ rust, minimax-strategy, alpha-beta-prunning ]
+    author_url: https://github.com/overlordtm
+    repository_url: https://github.com/overlordtm/rusty-tttm
+    endpoint_url: https://rusty-tttm.andraz-379.workers.dev/
+    sizes: [ 3 ]
