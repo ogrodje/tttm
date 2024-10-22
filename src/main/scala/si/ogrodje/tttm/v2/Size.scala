@@ -12,7 +12,7 @@ final case class WrongTypeError(message: String) extends IllegalArgumentExceptio
 object Size:
   def safe(n: Int): Either[WrongTypeError, Size] =
     RefType.applyRef[Size](n).left.map(s => WrongTypeError(s"Wrong type with $s"))
-  def safeZIO(n: Int): IO[Throwable, Size]       = ZIO.fromEither(safe(n))
+  def safeZIO(n: Int): IO[Throwable, Size]       = ZIO.from(safe(n))
 
   def unsafe(n: Int): Size = safe(n).toTry.get
   val default: Size        = unsafe(3)

@@ -7,10 +7,9 @@ import zio.{Task, UIO, ZIO}
 import java.util.UUID
 
 enum DecoderError(val message: String) extends RuntimeException(message):
-  case MissingQueryParameter(name: String) extends DecoderError(s"Problem decoding query parameter ${name}")
-  case ProblemDecodingParameterToType(details: String)
-      extends DecoderError(s"Problems decoding query to expected type. With: ${details}")
-  case MissingPlayingSymbol                extends DecoderError(s"Playing symbol is missing")
+  case MissingQueryParameter(name: String)             extends DecoderError(s"Problem decoding query parameter $name")
+  case ProblemDecodingParameterToType(details: String) extends DecoderError(s"Query type error: $details")
+  case MissingPlayingSymbol                            extends DecoderError(s"Playing symbol is missing")
 
 object GameDecoder:
   import DecoderError.*

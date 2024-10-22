@@ -1,14 +1,16 @@
 package si.ogrodje.tttm.v2
 
+import si.ogrodje.tttm.v2.ServerMeasurements.*
+
 import scala.util.Try
 
 trait ServerMeasurements:
-  def responseAverage: Double
-  def responseMedian: Double
-  def responseP99: Double
-  def responseMax: Double
-  def responseMin: Double
-  def numberOfMoves: Int
+  def responseAverage: Average
+  def responseMedian: Median
+  def responseP99: P99
+  def responseMax: Max
+  def responseMin: Min
+  def numberOfMoves: NumberOfMoves
 
 object ServerMeasurements:
   private type BaseValue     = Double

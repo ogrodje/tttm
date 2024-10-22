@@ -11,9 +11,7 @@ import scala.util.Random
 object SamplePlayerRandomLogic:
   private val computeMove: Game => Either[String, (Symbol, Position)] = game =>
     game.status match
-      case Pending =>
-        val randomPosition: Position = Random.shuffle(game.emptyPositions).head
-        Right(game.playing -> randomPosition)
+      case Pending => Right(game.playing -> Random.shuffle(game.emptyPositions.toSeq).head)
       case _       => Left("Can't do anything.")
 
   def handleMove(request: Request): Task[Response] = for

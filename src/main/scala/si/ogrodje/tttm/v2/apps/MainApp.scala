@@ -8,7 +8,8 @@ import zio.cli.*
 import zio.http.{Client, URL}
 import zio.logging.backend.SLF4J
 import zio.prelude.*
-
+import zio.json.*
+import eu.timepit.refined.auto.*
 import java.net.MalformedURLException
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -19,9 +20,10 @@ object MainApp extends ZIOCliDefault:
   override val bootstrap: ZLayer[ZIOAppArgs, Nothing, Any] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   enum Subcommand:
-    case ServerCommand(port: BigInt)                                                           extends Subcommand
-    case TournamentCommand(numberOfGames: BigInt, storeResult: Boolean, writeTo: Option[Path]) extends Subcommand
-    case PlayCommand(size: BigInt, numberOfGames: BigInt, serverA: String, serverB: String)    extends Subcommand
+    case ServerCommand(port: BigInt)                                                        extends Subcommand
+    case TournamentCommand(numberOfGames: BigInt, size: Option[Int], storeResult: Boolean, writeTo: Option[Path])
+        extends Subcommand
+    case PlayCommand(size: BigInt, numberOfGames: BigInt, serverA: String, serverB: String) extends Subcommand
 
   import Subcommand.*
 
@@ -38,10 +40,14 @@ object MainApp extends ZIOCliDefault:
     Validation.succeed(serverCommand.port.toInt)
 
   // Tournament
-  private type TournamentCommandArgs = (BigInt, Boolean, Option[Path])
+  private type TournamentCommandArgs = (BigInt, Option[Int], Boolean, Option[Path])
   private val tournamentCommand: Command[TournamentCommandArgs] = Command(
     "tournament",
     Options.integer("number-of-games").alias("ng").withDefault(BigInt(10)) ++
+      Options
+        .enumeration[Option[Int]]("size")("3" -> Some(3), "5" -> Some(5), "7" -> Some(7), "All" -> None)
+        .alias("s")
+        .withDefault(None) ++
       Options.boolean("store-results") ++
       Options.file("write-to").alias("out").optional,
     Args.none
@@ -49,9 +55,10 @@ object MainApp extends ZIOCliDefault:
 
   private def validateTournamentCommand(
     tournamentCommand: TournamentCommand
-  ): ZValidation[Nothing, Nothing, (Int, Boolean, Option[Path])] =
+  ): ZValidation[Nothing, Nothing, (Int, Option[Int], Boolean, Option[Path])] =
     Validation.validate(
       Validation.succeed(tournamentCommand.numberOfGames.toInt),
+      Validation.succeed(tournamentCommand.size),
       Validation.succeed(tournamentCommand.storeResult),
       Validation.succeed(tournamentCommand.writeTo)
     )
@@ -109,24 +116,37 @@ object MainApp extends ZIOCliDefault:
 
   private def tournament(
     numberOfGames: Int,
+    size: Option[Int],
     storeResults: Boolean,
     maybeWriteTo: Option[Path]
   ): Task[Unit] = for
-    _                 <-
+    _             <-
       logInfo(
         s"Starting tournament with number of games: $numberOfGames, " +
           s"storing results: $storeResults, " +
           s"write: ${maybeWriteTo.map(_.toAbsolutePath)}"
       )
-    playersConfig     <- PlayersConfig.fromDefaultFile
+    playersConfig <- PlayersConfig.fromDefaultFile
+
+    sizes <-
+      size.fold(ZIO.succeed(Sizes.validSizes))(s =>
+        Size
+          .safeZIO(s)
+          .flatMap(ss =>
+            ZIO
+              .fromEither(Sizes.safe(ss.value :: Nil))
+              .mapError(e => new RuntimeException(s"Size problem: ${e}"))
+          )
+      ): ZIO[Any, Throwable, Sizes]
+
     tournamentResults <-
       Tournament
-        .fromPlayersConfig(playersConfig, numberOfGames = numberOfGames)
+        .fromPlayersConfig(playersConfig, sizes, numberOfGames = numberOfGames)
         .play(requestTimeout = Duration.fromSeconds(2L))
         .provide(Client.default.and(Scope.default))
 
-    json = TournamentResults.tournamentResultsEncoder.encodeJson(tournamentResults, Some(1))
-    _   <- zio.Console.printLine(json)
+    json = TournamentResults.tournamentResultsEncoder.encodeJson(tournamentResults, None)
+    _   <- zio.Console.printLine(tournamentResults.toJsonPretty)
 
     _ <-
       ZIO.foreachDiscard(maybeWriteTo) { path =>

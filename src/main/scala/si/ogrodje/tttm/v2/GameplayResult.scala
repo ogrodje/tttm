@@ -59,8 +59,11 @@ object ServerResult:
 
   given serverResultJsonEncoder: JsonEncoder[ServerResult] = DeriveJsonEncoder.gen[ServerResult]
 
-  def fromGame(game: Game, symbol: Symbol): ServerResult =
-    ServerMeasurements.fromMoves(game.moves.filter(_.symbol == symbol))(
+  def fromGame(game: Game, symbol: Symbol): ServerResult = {
+    val serverResult = ServerMeasurements.fromMoves(game.moves.filter(_.symbol == symbol))(
       ServerResult.apply,
       ServerResult.empty
     )
+
+    serverResult
+  }

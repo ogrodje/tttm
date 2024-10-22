@@ -1,8 +1,7 @@
 package si.ogrodje.tttm.v2
-import zio.{IO, RIO, ZIO}
-import zio.ZIO.fromOption
+import zio.ZIO.{attempt, fail, from, fromEither, fromOption, fromTry, succeed}
 import zio.http.{QueryParams, URL}
-import ZIO.{attempt, fail, from, fromEither, fromTry, succeed}
+import zio.{IO, ZIO}
 
 import java.util.UUID
 import scala.util.Try
@@ -36,23 +35,19 @@ trait QueryParamOps:
         .mapError(th => DecodingError(th.getMessage))
 
   given [T](using decoder: Decoder[T]): Decoder[Option[T]] = s =>
-    if s.isEmpty then ZIO.none
-    else decoder(s).map(Some(_))
+    if s.isEmpty then ZIO.none else decoder(s).map(Some(_))
 
   extension (queryPrams: QueryParams)
-    def requiredAs[T](key: String)(using decoder: Decoder[T]): ZIO[Any, ParamError, T] =
-      for
-        rawValue <- fromOption(queryPrams.queryParam(key)).orElseFail(MissingParameter(key))
-        value    <- decoder(rawValue)
-      yield value
+    def requiredAs[T](key: String)(using decoder: Decoder[T]): ZIO[Any, ParamError, T] = for
+      rawValue <- fromOption(queryPrams.queryParam(key)).orElseFail(MissingParameter(key))
+      value    <- decoder(rawValue)
+    yield value
 
     def getAs[T](key: String)(using decoder: Decoder[T]): ZIO[Any, ParamError, Option[T]] =
-      ZIO
-        .succeed(queryPrams.queryParam(key))
-        .flatMap {
-          case Some(value) => decoder(value).map(Some(_))
-          case _           => ZIO.none
-        }
+      succeed(queryPrams.queryParam(key)).flatMap {
+        case Some(value) => decoder(value).map(Some(_))
+        case _           => ZIO.none
+      }
 
     def getAsWithDefault[T](key: String, default: T)(using decoder: Decoder[T]): ZIO[Any, ParamError, T] =
       getAs(key).map(_.getOrElse(default))
