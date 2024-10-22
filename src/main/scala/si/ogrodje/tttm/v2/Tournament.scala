@@ -8,8 +8,11 @@ import zio.{Duration, RIO, Scope}
 import java.time.{LocalDateTime, ZoneId}
 import java.util.UUID
 
+type TournamentID = UUID
+
 @jsonMemberNames(SnakeCase)
 final case class TournamentResults(
+  id: TournamentID,
   playersConfig: PlayersConfig = PlayersConfig.empty,
   @jsonField("size_3") size3: List[MatchResult],
   @jsonField("size_5") size5: List[MatchResult],
@@ -18,6 +21,7 @@ final case class TournamentResults(
 object TournamentResults:
   given tournamentResultsEncoder: JsonEncoder[TournamentResults] = DeriveJsonEncoder.gen
   val empty: TournamentResults                                   = apply(
+    UUID.randomUUID(),
     PlayersConfig.empty,
     List.empty,
     List.empty,
@@ -25,7 +29,7 @@ object TournamentResults:
   )
 
 final case class Tournament private (
-  id: Tournament.TournamentID,
+  id: TournamentID,
   createdAt: LocalDateTime,
   playersConfig: PlayersConfig,
   tournamentMatches: Tournament.TournamentMatches = Map.empty
@@ -74,8 +78,7 @@ final case class Tournament private (
       }
 
 object Tournament:
-  private type TournamentID = UUID
-  type NumberOfGames        = Long
+  type NumberOfGames = Long
   val numberOfGames: NumberOfGames = 10 // Number of games in match.
   private type TournamentMatches = Map[Size, List[Match]]
   private val zone: ZoneId = ZoneId.systemDefault()

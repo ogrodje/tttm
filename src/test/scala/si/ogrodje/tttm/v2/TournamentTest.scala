@@ -102,7 +102,7 @@ object TournamentTest extends ZIOSpecDefault:
       )
 
       assertZIO(tournamentResultsZIO)(
-        Assertion.assertion("test") { case tournamentResults @ TournamentResults(_, size3, size5, size7) =>
+        Assertion.assertion("test") { case tournamentResults @ TournamentResults(_, _, size3, size5, size7) =>
           val json = tournamentResults.toJsonPretty
           // val json = TournamentResults.tournamentResultsEncoder.encodeJson(tournamentResults, Some(1))
           // tournamentResultsEncoder
