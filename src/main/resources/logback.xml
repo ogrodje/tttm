@@ -17,6 +17,8 @@
     <logger name="io.netty" level="INFO"/>
     <logger name="si.ogrodje.tttm.v2.Gameplay" level="INFO"/>
     <logger name="si.ogrodje.tttm.v2.CLIGameReporter" level="WARN"/>
+    <logger name="doobie.hikari" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="INFO"/>
 
     <root level="${APP_LOG_LEVEL:-WARN}">
         <appender-ref ref="STDOUT"/>

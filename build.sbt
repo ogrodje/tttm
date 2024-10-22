@@ -13,7 +13,7 @@ lazy val root = (project in file("."))
   .settings(name := "tttm")
   .settings(
     Compile / mainClass := Some("si.ogrodje.tttm.v2.apps.ServerApp"),
-    libraryDependencies ++= zio,
+    libraryDependencies ++= zio ++ db,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     scalacOptions ++= Seq(
       "-deprecation",

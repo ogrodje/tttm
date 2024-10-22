@@ -4,5 +4,21 @@ services:
     ports:
       - "0.0.0.0:7778-7785:7777"
     restart: always
+    environment:
+      DATABASE_URL: jdbc:postgresql://pg:5432/tttm
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
     command:
       - "server"
+    links:
+      - pg
+    depends_on:
+      - pg
+
+  pg:
+    image: postgres:17
+    restart: always
+    ports:
+      - "0.0.0.0:5439:5432"
+    environment:
+      POSTGRES_DB: "tttm"
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}

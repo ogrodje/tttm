@@ -1,14 +1,22 @@
 package si.ogrodje.tttm.v2.apps
 
+import doobie.implicits.*
+import doobie.*
+import zio.interop.catz.*
 import si.ogrodje.tttm.v2.*
 import si.ogrodje.tttm.v2.QueryParamOps.*
+import si.ogrodje.tttm.v2.persistance.{DB, *}
+import si.ogrodje.tttm.v2.persistance.DB.TransactorTask
 import si.ogrodje.tttm.v2.server.*
 import zio.*
-import zio.ZIO.{logError, logInfo}
+import zio.ZIO.{logError, logInfo, provideLayer}
 import zio.http.*
 import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
 import zio.http.Middleware.{cors, CorsConfig}
 import zio.logging.backend.SLF4J
+import eu.timepit.refined.auto.*
+
+import java.nio.file.Path
 
 object ServerApp extends ZIOAppDefault:
   import Message.*
@@ -65,14 +73,14 @@ object ServerApp extends ZIOAppDefault:
     }
   }
 
-  private val routes: Routes[Scope & Client & PlayersConfig, Nothing] =
+  private val routes: Routes[Scope & Client & PlayersConfig & TransactorTask, Nothing] =
     Routes(
-      Method.GET / Root      -> handler(Response.text("Hello.")),
-      Method.GET / "players" -> handler { (req: Request) =>
+      Method.GET / Root          -> handler(Response.text("Hello.")),
+      Method.GET / "players"     -> handler { (req: Request) =>
         for playersConfig <- ZIO.service[PlayersConfig]
         yield Response.json(PlayersConfig.playersJsonEncoder.encodeJson(playersConfig))
       },
-      Method.GET / "sandbox" -> handler { (req: Request) =>
+      Method.GET / "sandbox"     -> handler { (req: Request) =>
         for
           serverAUrl    <- req.queryParameters.requiredAs[URL]("server-a")
           serverBUrl    <- req.queryParameters.requiredAs[URL]("server-b")
@@ -89,17 +97,22 @@ object ServerApp extends ZIOAppDefault:
           handler(
             Response.text(s"Sorry, request was not processed. Cause: ${th.getClass.getSimpleName} / ${th.getMessage}")
           )
-        )
+        ),
+      Method.GET / "tournaments" -> handler(TournamentsView.lastTournaments).sandbox
     ) @@ cors(corsConfig)
 
-  def run: Task[Nothing] = runWithPort()
+  def run: Task[Nothing] = runWithPort().orDieWith(any => new RuntimeException("Boom."))
 
-  def runWithPort(port: Int = 7777): Task[Nothing] =
-    logInfo(s"Booting server on port ${port}") *>
-      Server
-        .serve(routes)
-        .provide(
-          Server.defaultWithPort(port),
-          Client.default.and(Scope.default),
-          ZLayer.fromZIO(PlayersConfig.fromResources)
-        )
+  def runWithPort(port: Int = 7777) = (for
+    _        <- logInfo(s"Booting server on port $port")
+    dbConfig <- ZIO.service[DBConfiguration]
+    _        <- DB.loadMigrate
+    server   <- Server
+                  .serve(routes)
+                  .provide(
+                    Server.defaultWithPort(port),
+                    Client.default.and(Scope.default),
+                    ZLayer.fromZIO(PlayersConfig.fromFile(Path.of("players.yml"))),
+                    ZLayer.fromZIO(DB.transactor.make(dbConfig))
+                  )
+  yield server).provide(DBConfiguration.live)

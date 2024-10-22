@@ -5,18 +5,17 @@ object Dependencies {
   type Modules = Seq[ModuleID]
 
   object Versions {
-    val http4s: Version        = "1.0.0-M40"
-    val fs2: Version           = "3.10.2"
-    val decline: Version       = "2.4.1"
     val log4cats: Version      = "2.7.0"
     val scalaTest: Version     = "3.2.19"
-    val doobie: Version        = "1.0.0-RC5"
+    val doobie: Version        = "1.0.0-RC6"
     val sentryLogback: Version = "7.12.1"
     val ical4j: Version        = "4.0.1"
     val quartz: Version        = "2.3.2"
-    val zio: Version           = "2.1.9"
-    val zioLogging: Version    = "2.3.1"
+    val zio: Version           = "2.1.11"
+    val zioLogging: Version    = "2.3.2"
     val zioHttp: Version       = "3.0.1"
+    val postgresql: Version    = "42.7.4"
+    val flyway: Version        = "10.20.0"
   }
 
   lazy val zio: Modules = Seq(
@@ -33,7 +32,7 @@ object Dependencies {
     "dev.zio" %% "zio-logging",
     "dev.zio" %% "zio-logging-slf4j2"
   ).map(_ % Versions.zioLogging) ++ Seq(
-    "ch.qos.logback" % "logback-classic" % "1.5.9"
+    "ch.qos.logback" % "logback-classic" % "1.5.11"
   ) ++ Seq(
     "dev.zio" %% "zio-schema",
     "dev.zio" %% "zio-schema-json",
@@ -61,13 +60,23 @@ object Dependencies {
     "io.sentry" % "sentry-logback" % Versions.sentryLogback
   )
 
-  lazy val scalaTags: Modules = Seq(
-    "com.lihaoyi" %% "scalatags" % "0.13.1"
-  )
-
   lazy val quartz: Modules = Seq(
     "org.quartz-scheduler" % "quartz"
   ).map(_ % Versions.quartz)
+
+  lazy val db: Modules = Seq(
+    "org.tpolecat" %% "doobie-core",
+    "org.tpolecat" %% "doobie-hikari",  // HikariCP transactor.
+    "org.tpolecat" %% "doobie-postgres" // Postgres driver
+    // "org.tpolecat" %% "doobie-postgres-circe"
+  ).map(_ % Versions.doobie) ++ Seq(
+    "org.postgresql" % "postgresql" % Versions.postgresql
+  ) ++ Seq(
+    "org.flywaydb" % "flyway-core",
+    "org.flywaydb" % "flyway-database-postgresql"
+  ).map(_ % Versions.flyway) ++ Seq(
+    "dev.zio" %% "zio-interop-cats" % "23.1.0.3"
+  )
 
   lazy val projectResolvers: Seq[MavenRepository] = Seq(
     // Resolver.sonatypeOssRepos("snapshots"),
@@ -75,9 +84,5 @@ object Dependencies {
     "Sonatype snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     "Sonatype staging" at "https://oss.sonatype.org/content/repositories/staging",
     "Java.net Maven2 Repository" at "https://download.java.net/maven/2/"
-  )
-
-  lazy val crypto: Modules = Seq(
-    "io.github.felipebonezi" % "cipherizy-lib" % "1.2.0"
   )
 }
