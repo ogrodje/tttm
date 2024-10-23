@@ -5,6 +5,7 @@ import si.ogrodje.tttm.v2.persistance.{DB, DBConfiguration, TournamentResultsDAO
 import si.ogrodje.tttm.v2.*
 import zio.ZIO.logInfo
 import zio.json.*
+import zio.stream.ZStream
 import zio.{Duration, Scope, Task, ZIO, ZLayer}
 
 import java.nio.charset.StandardCharsets
@@ -39,6 +40,19 @@ object RunTournament:
     _   <- zio.Console.printLine(tournamentResults.toJsonPretty)
 
     _ <- logInfo(s"Tournament with ID: $id has completed.")
+
+    scores <-
+      ZStream
+        .fromIterable(sizes)
+        .mapZIOParUnordered(3)(size =>
+          ZIO.succeed(Scoring.forSize(tournamentResults, size)(using explain = false)).map(r => size -> r)
+        )
+        .tap((size, scores) =>
+          zio.Console.printLine(
+            s"\n⚡️ SIZE: ${size}, SCORES:\n${scores.toList.sortBy(-_._2).map((id, s) => id + " = " + s).mkString("\n")}"
+          )
+        )
+        .runDrain
 
     _ <-
       ZIO.foreachDiscard(maybeWriteTo) { path =>

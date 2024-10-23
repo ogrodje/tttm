@@ -3,7 +3,6 @@ package si.ogrodje.tttm.v2
 import si.ogrodje.tttm.v2.GameplayError.*
 import si.ogrodje.tttm.v2.Status.*
 import zio.*
-import zio.ZIO.logInfo
 import zio.http.*
 import zio.prelude.NonEmptyList
 
@@ -69,11 +68,7 @@ final class Gameplay private (
   ): ZIO[Scope, Throwable, Game] =
     game.status match
       case Pending                    =>
-        processRequest(
-          client,
-          servers = swapServers(servers),
-          game = game.copyBySwitchingPlaying
-        )
+        processRequest(client, swapServers(servers), game.copyBySwitchingPlaying)
       case Tie                        => reporter.logInfo("Tie")(Some(game.gid)).as(game)
       case Won(symbol)                => reporter.logInfo(s"Won by $symbol")(Some(game.gid)).as(game)
       case CrashedBy(symbol, message) =>
@@ -87,19 +82,6 @@ final class Gameplay private (
     case Right(move)         => game.appendZIO(move).flatMap(handleGame(client, servers))
     case Left(gameplayError) => ZIO.succeed(game.copyAsCrashed(gameplayError.getMessage))
   }
-
-  private def readProxyInformation: ZIO[Any, Exception, Option[URL]] = for
-    maybeProxy            <- zio.System.envOrOption("HTTP_PROXY", None)
-    maybeUrl: Option[URL] <-
-      maybeProxy.fold(ZIO.none)(raw => ZIO.fromEither(URL.decode(raw)).map(s => Some(s)))
-  yield maybeUrl
-
-  private def originOrProxy: ZIO[Client, Exception, Client] =
-    readProxyInformation.flatMap {
-      case Some(proxyUrl) =>
-        ZIO.serviceWith[Client](_.proxy(Proxy(url = proxyUrl))) <* logInfo(s"Using proxy ${proxyUrl.toString}")
-      case None           => ZIO.service[Client]
-    }
 
   def play: ZIO[zio.Scope & Client, Throwable, (Game, GameplayResult)] = for
     client           <- ZIO.service[Client]
