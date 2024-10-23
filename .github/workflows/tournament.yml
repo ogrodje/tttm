@@ -3,8 +3,11 @@ name: Run tournament
 on:
   workflow_dispatch:
   schedule:
-    # note: * is a special character in YAML so you have to quote cron string:
     - cron: '0 6 * * *' # use https://crontab.guru/
+
+env:
+  REGISTRY: ghcr.io
+  DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
 
 jobs:
   run-tournament:
