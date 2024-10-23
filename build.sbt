@@ -2,17 +2,18 @@ import com.typesafe.sbt.SbtNativePackager.autoImport._
 import com.typesafe.sbt.packager.docker.Cmd
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport._
 import Dependencies.*
+import NativePackagerHelper._
 
 ThisBuild / version            := "0.0.1"
 ThisBuild / scalaVersion       := "3.5.1"
 ThisBuild / evictionErrorLevel := Level.Info
 
 lazy val root = (project in file("."))
-  .enablePlugins(JavaServerAppPackaging, DockerPlugin)
+  .enablePlugins(JavaAppPackaging, DockerPlugin)
   .settings(name := "tttm")
   .settings(
     Compile / mainClass := Some("si.ogrodje.tttm.v2.apps.ServerApp"),
-    libraryDependencies ++= zio,
+    libraryDependencies ++= zio ++ db,
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     scalacOptions ++= Seq(
       "-deprecation",
@@ -26,6 +27,7 @@ lazy val root = (project in file("."))
     )
   )
   .settings(
+    assembly / mainClass             := Some("si.ogrodje.tttm.v2.apps.MainApp"),
     assembly / assemblyJarName       := "tttm.jar",
     assembly / assemblyMergeStrategy := {
       case PathList("module-info.class")                        =>
@@ -43,14 +45,19 @@ lazy val root = (project in file("."))
     }
   )
   .settings(
-    dockerExposedPorts    := Seq(7777),
-    dockerExposedUdpPorts := Seq.empty[Int],
-    dockerUsername        := Some("ogrodje"),
-    dockerUpdateLatest    := true,
-    dockerRepository      := Some("ghcr.io"),
-    dockerBaseImage       := "azul/zulu-openjdk-alpine:21-latest",
-    packageName           := "tttm",
-    dockerCommands        := dockerCommands.value.flatMap {
+    Compile / mainClass             := Some("si.ogrodje.tttm.v2.apps.MainApp"),
+    Compile / discoveredMainClasses := Seq(),
+    dockerExposedPorts              := Seq(7777),
+    dockerExposedUdpPorts           := Seq.empty[Int],
+    dockerUsername                  := Some("ogrodje"),
+    dockerUpdateLatest              := true,
+    dockerRepository                := Some("ghcr.io"),
+    dockerBaseImage                 := "azul/zulu-openjdk-alpine:21-latest",
+    packageName                     := "tttm",
+    Docker / dockerPackageMappings += (
+      baseDirectory.value / "players.yml"
+    )                               -> "/opt/docker/players.yml",
+    dockerCommands                  := dockerCommands.value.flatMap {
       case add @ Cmd("RUN", args @ _*) if args.contains("id") =>
         List(
           Cmd("LABEL", "maintainer Oto Brglez <otobrglez@gmail.com>"),

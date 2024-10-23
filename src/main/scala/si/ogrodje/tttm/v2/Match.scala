@@ -22,7 +22,10 @@ final case class MatchPlayerResult(
   @jsonField("response_median_ms") responseMedian: Double = 0,
   @jsonField("response_p99_ms") responseP99: Double = 0,
   @jsonField("response_min_ms") responseMin: Double = 0,
-  @jsonField("response_max_ms") responseMax: Double = 0
+  @jsonField("response_max_ms") responseMax: Double = 0,
+  numberOfMoves: Int = 0,
+  @jsonField("moves_per_game_average") movesPerGameAverage: Double = 0
+  // @jsonField("moves_per_game_average_won") movesPerGameAverageWon: Double = 0
 ) extends ServerMeasurements
 
 object MatchPlayerResult:
@@ -73,9 +76,9 @@ final case class Match private (
             .play
             .map(result => servers -> result)
             .tap { case (_, (g, gameplayResult)) =>
-              val grJson = GameplayResult.gameplayResultJsonEncoder.encodeJson(gameplayResult, Some(2))
-              logInfo(s"Completed game n: $n; Size: ${g.size}, Moves: ${g.moves.length}, Status: ${g.status}")
-            // zio.Console.printLine(grJson)
+              val gameplayResultJson = GameplayResult.gameplayResultJsonEncoder.encodeJson(gameplayResult, Some(2))
+              logInfo(s"Completed game n: ${n + 1}; Size: ${g.size}, Moves: ${g.moves.length}, Status: ${g.status}")
+            // *> zio.Console.printLine(grJson)
             }
         }
 
@@ -118,36 +121,53 @@ final case class Match private (
     playerServerID: PlayerServerID,
     gameplayResults: List[GameplayResult]
   ): MatchPlayerResult =
-    gameplayResults.foldLeft(MatchPlayerResult.empty) { case (matchPlayerResult, gameplayResult) =>
-      matchPlayerResult.copy(
-        played = matchPlayerResult.played + 1,
-        won = gameplayResult.maybeWinner
-          .flatMap(s => Option.when(s == playerServerID)(matchPlayerResult.won + 1))
-          .getOrElse(matchPlayerResult.won),
-        lost = gameplayResult.maybeWinner
-          .flatMap(s => Option.when(s != playerServerID)(matchPlayerResult.lost + 1))
-          .getOrElse(matchPlayerResult.lost),
-        tie = gameplayResult.maybeWinner
-          .fold(matchPlayerResult.tie + 1)(_ => matchPlayerResult.tie),
-        crashed = (gameplayResult.maybeWinner, gameplayResult.status) match
-          case Some(winnerPlayerID) -> CrashedBy(_, _) if winnerPlayerID != playerServerID =>
-            matchPlayerResult.crashed + 1
-          case _                                                                           =>
-            matchPlayerResult.crashed
-      )
+    gameplayResults.foldLeft(MatchPlayerResult.empty) {
+      case (
+            matchPlayerResult @ MatchPlayerResult(
+              played,
+              won,
+              lost,
+              tie,
+              crashed,
+              responseAverage,
+              responseMedian,
+              responseP99,
+              responseMin,
+              responseMax,
+              numberOfMoves,
+              _
+            ),
+            gameplayResult @ GameplayResult(duration, status, maybeWinner, serverA, serverB, moves)
+          ) =>
+        matchPlayerResult.copy(
+          played = played + 1,
+          won = maybeWinner
+            .flatMap(s => Option.when(s == playerServerID)(won + 1))
+            .getOrElse(won),
+          lost = maybeWinner
+            .flatMap(s => Option.when(s != playerServerID)(lost + 1))
+            .getOrElse(lost),
+          tie = maybeWinner.fold(tie + 1)(_ => tie),
+          crashed = (maybeWinner, status) match
+            case Some(winnerPlayerID) -> CrashedBy(_, _) if winnerPlayerID != playerServerID => crashed + 1
+            case _                                                                           => crashed,
+          numberOfMoves = numberOfMoves + moves.count(_.playerServerID.getOrElse("other") == playerServerID)
+        )
     }
 
   private def attachStatsFromMoves(init: MatchPlayerResult = MatchPlayerResult.empty)(
     moves: List[Move]
   ): MatchPlayerResult =
     ServerMeasurements.fromMoves(moves.toArray)(
-      { case (average, median, p99, min, max) =>
+      { case (average, median, p99, min, max, numberOfMoves) =>
         init.copy(
           responseAverage = average,
           responseMedian = median,
           responseP99 = p99,
           responseMin = min,
-          responseMax = max
+          responseMax = max,
+          movesPerGameAverage = init.numberOfMoves.toDouble / init.played.toDouble
+          // movesPerGameAverageWon = init.numberOfMoves.toDouble / init.won.toDouble
         )
       },
       init

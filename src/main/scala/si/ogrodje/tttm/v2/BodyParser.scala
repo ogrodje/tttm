@@ -1,6 +1,7 @@
 package si.ogrodje.tttm.v2
-import zio.ZIO
-import ZIO.fromEither
+import zio.ZIO.fromEither
+import zio.{IO, ZIO}
+import ZIO.{fail, succeed}
 
 enum BodyParserError(val message: String) extends Throwable(message):
   case NoMoveFound                                     extends BodyParserError("No move payload found.")
@@ -22,11 +23,11 @@ object BodyParser:
       .map(_.group(1))
       .toRight(NoErrorMessage)
 
-  def parse(raw: String): ZIO[Any, BodyParserError, Move] =
+  def parse(raw: String): IO[BodyParserError, Move] =
     val parsedMove  = fromEither(parseBody(raw))
     val parsedError = fromEither(maybeError(raw))
 
     parsedMove.orElse(parsedError).flatMap {
-      case move: Move      => ZIO.succeed(move)
-      case message: String => ZIO.fail(CustomPlayerError(message))
+      case move: Move      => succeed(move)
+      case message: String => fail(CustomPlayerError(message))
     }

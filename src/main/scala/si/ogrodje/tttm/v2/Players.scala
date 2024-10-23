@@ -52,12 +52,12 @@ object PlayersConfig:
   given playersJsonDecoder: JsonDecoder[PlayersConfig] = DeriveJsonDecoder.gen
   given playersJsonEncoder: JsonEncoder[PlayersConfig] = DeriveJsonEncoder.gen
 
+  val empty: PlayersConfig = PlayersConfig(List.empty[Player])
+
   private def readFile(path: Path): String =
     val source = Source.fromFile(path.toFile)
-    try
-      source.mkString
-    finally
-      source.close
+    try source.mkString
+    finally source.close
 
   private def stringToYaml(content: String) =
     ZIO.fromEither(content.fromYaml[PlayersConfig]).mapError(err => new RuntimeException(err))

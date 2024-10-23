@@ -6,7 +6,7 @@ type Sizes = NonEmptySet[Size]
 object Sizes:
   val validSizes: Sizes = Sizes.unsafeOf(3, 5, 7)
 
-  def safe(sizes: List[Int]): Either[String, NonEmptySet[Size]] = for
+  def safe(sizes: List[Int]): Either[String, Sizes] = for
     rSet  <-
       sizes
         .map(Size.safe)

@@ -1,1 +1,15 @@
-services: {}
+services:
+  tttm:
+    restart: always
+  pg:
+    restart: always
+    volumes:
+      - tttm-pg-db:/var/lib/postgresql/data
+
+volumes:
+  tttm-pg-db:
+    driver: "local"
+    driver_opts:
+      type: none
+      device: /home/oto/Projects/tttm-pg-db/data
+      o: bind

@@ -5,7 +5,8 @@
 ## Rules
 
 1. Players can use whatever language and whatever technology.
-2. The player must submit the URL to a server via the [PR request](https://github.com/ogrodje/tttm/pulls) on this repository. All player servers are listed in [players.yml](./players.yml).
+2. The player must submit the URL to a server via the [PR request](https://github.com/ogrodje/tttm/pulls) on this
+   repository. All player servers are listed in [players.yml](./players.yml).
 3. The player can submit as many servers as he or she wants.
 4. The server needs to follow the [Player Server Protocol](#player-server-protocol) described in this document.
 5. The game server will randomly pick player servers and execute gameplay.
@@ -22,14 +23,17 @@ Players need to implement an HTTP server that needs to have one endpoint.
 The game server will pass the following URL `query parameters` to the player server.
 
 - `gid` - `UUID` that represents the given game ID.
-  - It can be used on player servers to stick together individual games.
+    - It can be used on player servers to stick together individual games.
 - `size` - A number - size - of [tic-tac-toe][ttt] grid.
-  - By default, the size is set to `3`, representing the grid of size `3x3`. To win, one has to have 3 symbols in either row/column/diagonal.
-  - ⚠️ The `tttm` engine currently only supports a size of 3. We will expand this to `5x5` and `7x7`, where one must put four symbols to win.
+    - By default, the size is set to `3`, representing the grid of size `3x3`. To win, one has to have 3 symbols in
+      either row/column/diagonal.
+    - ⚠️ The `tttm` engine currently only supports a size of 3. We will expand this to `5x5` and `7x7`, where one must
+      put four symbols to win.
 - `playing` - A symbol that the player server needs to play. Possible values are `X` or `O`
 - `moves` - A string that represents the previous moves.
-  - Moves are separated by `_` and positions by `-`
-  - Example: `X-1-1_O-0-0` means that the `X` symbol was at location `1,1` (centre of grid) and `O` at `0,0` (top-left corner of the grid)
+    - Moves are separated by `_` and positions by `-`
+    - Example: `X-1-1_O-0-0` means that the `X` symbol was at location `1,1` (centre of grid) and `O` at `0,0` (top-left
+      corner of the grid)
 
 ### Body
 
@@ -49,16 +53,37 @@ Error:Sorry. Can't do it bro.
 
 ## Example Player Servers
 
-- [tttm-randy](https://github.com/otobrglez/tttm-randy) is a sample player server implemented in Python 3 with Flask and uses "random strategy" where it will "play" any field that is empty on the given grid.
+- [tttm-randy](https://github.com/otobrglez/tttm-randy) is a sample player server implemented in Python 3 with Flask and
+  uses "random strategy" where it will "play" any field that is empty on the given grid.
 
 ## Why?
 
-Why not? We want to see who can build the universe's fastest and most "intelligent" APIs [for the lolz](https://www.urbandictionary.com/define.php?term=for+the+lolz).
+Why not? We want to see who can build the universe's fastest and most "intelligent"
+APIs [for the lolz](https://www.urbandictionary.com/define.php?term=for+the+lolz).
 
 ## Authors
 
 - [Oto Brglez](https://github.com/otobrglez)
 - [Ogrodje Podcast](https://ogrodje.si)
 
+## Development
+
+This project uses [devenv](https://devenv.sh/) for development. Once you have the dependencies; you can just
+use [sbt](https://www.scala-sbt.org/).
+
+```bash
+sbt test
+```
+
+Build local Docker image:
+
+```bash
+sbt docker:publishLocal
+docker run -ti --rm -p 7777:7777 ghcr.io/ogrodje/tttm -- server -P 7777
+docker run --rm ghcr.io/ogrodje/tttm -- --help
+```
+
+
 [tttm]: https://github.com/ogrodje/tttm
+
 [ttt]: https://en.wikipedia.org/wiki/Tic-tac-toe

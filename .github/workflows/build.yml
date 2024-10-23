@@ -9,6 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
 
 jobs:
   build:
@@ -68,7 +69,7 @@ jobs:
       - name: Deploy to production
         if: ${{ github.ref == 'refs/heads/master' }}
         run: |
-          export DOCKER_HOST="ssh://low"
+          export DOCKER_HOST=ssh://low
           ./bin/tttm-prod.sh pull && \
             ./bin/tttm-prod.sh up -d --remove-orphans
 

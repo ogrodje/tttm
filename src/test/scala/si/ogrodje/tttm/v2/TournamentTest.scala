@@ -7,6 +7,7 @@ import zio.http.netty.NettyConfig
 import zio.http.netty.server.NettyDriver
 import zio.logging.backend.SLF4J
 import zio.test.*
+import zio.json.*
 
 import java.net.URI
 
@@ -49,7 +50,7 @@ object TournamentTest extends ZIOSpecDefault:
   def spec = suite("Tournament")(
     test("matches generator") {
       val verbose    = !true
-      val tournament = Tournament.fromPlayersConfig(config)
+      val tournament = Tournament.fromPlayersConfig(config, sizes = Sizes.validSizes)
 
       tournament.tournamentMatches.foreach { case (size, m) =>
         if verbose then println(s"Size: $size")
@@ -63,9 +64,8 @@ object TournamentTest extends ZIOSpecDefault:
       )
     },
     test("play the tournament") {
-      val verbose = !true
-
-      val x = (for
+      val verbose              = !true
+      val tournamentResultsZIO = (for
         port              <- ZIO.serviceWithZIO[Server](_.port)
         tournament         =
           Tournament.fromPlayersConfig(config.copy(players = config.players.zipWithIndex.map { case (player, i) =>
@@ -91,7 +91,7 @@ object TournamentTest extends ZIOSpecDefault:
           }
         tournamentResults <-
           tournament
-            .play(requestTimeout = Duration.fromMillis(200L))
+            .play(requestTimeout = Duration.fromMillis(50L))
             .provideSome[Client & Driver](TestServer.layer.and(Scope.default))
       yield tournamentResults).provide(
         TestServer.layer,
@@ -101,16 +101,15 @@ object TournamentTest extends ZIOSpecDefault:
         ZLayer.succeed(NettyConfig.defaultWithFastShutdown)
       )
 
-      assertZIO(x)(
-        Assertion.assertion("test") { results =>
-          val j = TournamentResults.tournamentResultsEncoder.encodeJson(results, Some(1))
+      assertZIO(tournamentResultsZIO)(
+        Assertion.assertion("test") { case tournamentResults @ TournamentResults(_, _, size3, size5, size7) =>
+          val json = tournamentResults.toJsonPretty
+          // val json = TournamentResults.tournamentResultsEncoder.encodeJson(tournamentResults, Some(1))
           // tournamentResultsEncoder
-          // println(s"got => ${results}")
+          println(s"JSON tournament results:\n${json}")
           // println(j)
 
-          results.size3.nonEmpty &&
-          results.size5.nonEmpty &&
-          results.size7.nonEmpty
+          size3.nonEmpty && size5.nonEmpty && size7.nonEmpty
         }
       )
     } @@ TestAspect.withLiveClock

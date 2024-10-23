@@ -43,12 +43,14 @@ object GameplayResult:
     )
 
 @jsonHintNames(SnakeCase)
+@jsonMemberNames(SnakeCase)
 final case class ServerResult(
   @jsonField("response_average_ms") responseAverage: Double = 0,
   @jsonField("response_median_ms") responseMedian: Double = 0,
   @jsonField("response_p99_ms") responseP99: Double = 0,
   @jsonField("response_min_ms") responseMin: Double = 0,
-  @jsonField("response_max_ms") responseMax: Double = 0
+  @jsonField("response_max_ms") responseMax: Double = 0,
+  numberOfMoves: Int = 0
 ) extends ServerMeasurements
 
 object ServerResult:
@@ -57,8 +59,11 @@ object ServerResult:
 
   given serverResultJsonEncoder: JsonEncoder[ServerResult] = DeriveJsonEncoder.gen[ServerResult]
 
-  def fromGame(game: Game, symbol: Symbol): ServerResult =
-    ServerMeasurements.fromMoves(game.moves.filter(_.symbol == symbol))(
+  def fromGame(game: Game, symbol: Symbol): ServerResult = {
+    val serverResult = ServerMeasurements.fromMoves(game.moves.filter(_.symbol == symbol))(
       ServerResult.apply,
       ServerResult.empty
     )
+
+    serverResult
+  }
