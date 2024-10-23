@@ -29,5 +29,6 @@ jobs:
           if_key_exists: fail
 
       - name: Run tournament on production
-        env: { DOCKER_HOST: "ssh://low" }
-        run: ./bin/tttm-prod.sh ps
+        run: |
+          export DOCKER_HOST=ssh://low
+          ./bin/tttm-prod.sh ps

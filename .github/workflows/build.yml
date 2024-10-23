@@ -68,8 +68,8 @@ jobs:
 
       - name: Deploy to production
         if: ${{ github.ref == 'refs/heads/master' }}
-        env: { DOCKER_HOST: ssh://low }
         run: |
+          export DOCKER_HOST=ssh://low
           ./bin/tttm-prod.sh pull && \
             ./bin/tttm-prod.sh up -d --remove-orphans
 
