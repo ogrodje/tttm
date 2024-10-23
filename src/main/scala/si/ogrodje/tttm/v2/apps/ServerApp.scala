@@ -98,7 +98,7 @@ object ServerApp extends ZIOAppDefault:
             Response.text(s"Sorry, request was not processed. Cause: ${th.getClass.getSimpleName} / ${th.getMessage}")
           )
         ),
-      Method.GET / "tournaments" -> handler(TournamentsView.lastTournaments).sandbox
+      Method.GET / "tournaments" -> handler(TournamentsView.lastTournaments(_)).sandbox
     ) @@ cors(corsConfig)
 
   def run: Task[Nothing] = runWithPort().orDieWith(any => new RuntimeException("Boom."))
@@ -107,12 +107,13 @@ object ServerApp extends ZIOAppDefault:
     _        <- logInfo(s"Booting server on port $port")
     dbConfig <- ZIO.service[DBConfiguration]
     _        <- DB.loadMigrate
-    server   <- Server
-                  .serve(routes)
-                  .provide(
-                    Server.defaultWithPort(port),
-                    Client.default.and(Scope.default),
-                    ZLayer.fromZIO(PlayersConfig.fromFile(Path.of("players.yml"))),
-                    ZLayer.fromZIO(DB.transactor.make(dbConfig))
-                  )
+    server   <-
+      Server
+        .serve(routes)
+        .provide(
+          Server.defaultWithPort(port),
+          Client.default.and(Scope.default),
+          ZLayer.fromZIO(PlayersConfig.fromFile(Path.of("players.yml"))),
+          ZLayer.fromZIO(DB.transactor.make(dbConfig))
+        )
   yield server).provide(DBConfiguration.live)

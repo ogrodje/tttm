@@ -98,7 +98,7 @@ object Tournament:
     createdAt = LocalDateTime.now(zone),
     playersConfig = playersConfig,
     tournamentMatches = sizes.map { size =>
-      val pairs = mkPairs(playersConfig.players.filter(_.sizes.contains(size)))
+      val pairs = mkPairs(playersConfig.players.filter(_.sizes.contains(size)).take(2)) // TODO: Remove this.
       size -> pairs.map { case (a, b) => Match.mk(a, b, numberOfGames, size) }
     }.toMap
   )

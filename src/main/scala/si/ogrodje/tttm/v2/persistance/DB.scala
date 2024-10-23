@@ -40,7 +40,9 @@ object DBConfiguration:
 object DB:
   private val mkFlywayConfiguration: DBConfiguration => FluentConfiguration =
     case DBConfiguration(url, user, password) =>
-      Flyway.configure.dataSource(url, user, password)
+      Flyway.configure
+        .dataSource(url, user, password)
+        .locations("migrations")
 
   private val mkHikariConfig: DBConfiguration => HikariConfig = dbConfig =>
     Class.forName("org.postgresql.Driver")

@@ -20,10 +20,19 @@ object MainApp extends ZIOCliDefault:
   override val bootstrap: ZLayer[ZIOAppArgs, Nothing, Any] = Runtime.removeDefaultLoggers >>> SLF4J.slf4j
 
   enum Subcommand:
-    case ServerCommand(port: BigInt)                                                        extends Subcommand
-    case TournamentCommand(numberOfGames: BigInt, size: Option[Int], storeResult: Boolean, writeTo: Option[Path])
-        extends Subcommand
-    case PlayCommand(size: BigInt, numberOfGames: BigInt, serverA: String, serverB: String) extends Subcommand
+    case ServerCommand(port: BigInt) extends Subcommand
+    case TournamentCommand(
+      numberOfGames: BigInt,
+      size: Option[Int],
+      storeResult: Boolean,
+      writeTo: Option[Path]
+    )                                extends Subcommand
+    case PlayCommand(
+      size: BigInt,
+      numberOfGames: BigInt,
+      serverA: String,
+      serverB: String
+    )                                extends Subcommand
 
   import Subcommand.*
 
@@ -96,7 +105,7 @@ object MainApp extends ZIOCliDefault:
     summary = HelpDoc.Span.text("Main entrypoint for tttm services."),
     command = command
   ) {
-    case cmd: TournamentCommand => validateTournamentCommand(cmd).toZIO.flatMap(tournament).as(Exit.Success)
+    case cmd: TournamentCommand => validateTournamentCommand(cmd).toZIO.flatMap(RunTournament.run).as(Exit.Success)
     case cmd: PlayCommand       => validatePlayCommand(cmd).toZIO.flatMap(play).as(Exit.Success)
     case cmd: ServerCommand     => validateServerCommand(cmd).toZIO.flatMap(server).as(Exit.Success)
   }
@@ -114,46 +123,12 @@ object MainApp extends ZIOCliDefault:
     _      <- printLine(MatchResult.matchResultJsonEncoder.encodeJson(out, Some(1)))
   yield ()
 
-  private def tournament(
-    numberOfGames: Int,
-    size: Option[Int],
-    storeResults: Boolean,
-    maybeWriteTo: Option[Path]
-  ): Task[Unit] = for
-    _             <-
-      logInfo(
-        s"Starting tournament with number of games: $numberOfGames, " +
-          s"storing results: $storeResults, " +
-          s"write: ${maybeWriteTo.map(_.toAbsolutePath)}"
-      )
-    playersConfig <- PlayersConfig.fromDefaultFile
-
-    sizes <-
-      size.fold(ZIO.succeed(Sizes.validSizes))(s =>
-        Size
-          .safeZIO(s)
-          .flatMap(ss =>
-            ZIO
-              .fromEither(Sizes.safe(ss.value :: Nil))
-              .mapError(e => new RuntimeException(s"Size problem: ${e}"))
-          )
-      ): ZIO[Any, Throwable, Sizes]
-
-    tournamentResults <-
-      Tournament
-        .fromPlayersConfig(playersConfig, sizes, numberOfGames = numberOfGames)
-        .play(requestTimeout = Duration.fromSeconds(2L))
-        .provide(Client.default.and(Scope.default))
-
-    json = TournamentResults.tournamentResultsEncoder.encodeJson(tournamentResults, None)
-    _   <- zio.Console.printLine(tournamentResults.toJsonPretty)
-
-    _ <-
-      ZIO.foreachDiscard(maybeWriteTo) { path =>
-        ZIO.attemptBlocking(
-          Files.write(path, json.toString.getBytes(StandardCharsets.UTF_8))
-        )
-      }
-  yield ()
+  def validSizes(maybeRawSize: Option[Int]): IO[RuntimeException, Sizes] =
+    ZIO.from(
+      maybeRawSize
+        .toRight(new RuntimeException("Missing size"))
+        .flatMap(Size.safe)
+        .flatMap(s => Sizes.safe(s :: Nil).left.map(er => new RuntimeException(s"Problem with size: ${er}")))
+    )
 
   private def server(port: Int): Task[Unit] = ServerApp.runWithPort(port)

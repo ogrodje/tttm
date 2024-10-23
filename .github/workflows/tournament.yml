@@ -1,0 +1,34 @@
+on:
+  workflow_dispatch:
+  schedule:
+    # note: * is a special character in YAML so you have to quote cron string:
+    - cron: '0 6 * * *' # use https://crontab.guru/
+
+jobs:
+  run-tournament:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - uses: shimataro/ssh-key-action@v2
+        with:
+          known_hosts: unnecessary
+          key: ${{ secrets.SSH_KEY }}
+          name: id_rsa_og_events
+          config: |
+            Host low
+              User oto
+              Hostname oto.srv4all.net
+              IdentityFile ~/.ssh/id_rsa_og_events
+              StrictHostKeyChecking no
+              ConnectTimeout 60
+              ConnectionAttempts 2
+          if_key_exists: fail
+
+      - name: Run tournament on production
+        run: |
+          export DOCKER_HOST="ssh://low"
+          ./bin/tttm-prod.sh ps
