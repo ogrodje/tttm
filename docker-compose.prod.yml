@@ -6,6 +6,9 @@ services:
     volumes:
       - tttm-pg-db:/var/lib/postgresql/data
 
+  tournament:
+    restart: unless-stopped
+
 volumes:
   tttm-pg-db:
     driver: "local"
