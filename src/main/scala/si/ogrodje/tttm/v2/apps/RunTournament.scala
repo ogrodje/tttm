@@ -1,12 +1,11 @@
 package si.ogrodje.tttm.v2.apps
 
-import si.ogrodje.tttm.v2.{PlayersConfig, Sizes, Tournament, TournamentResults}
 import si.ogrodje.tttm.v2.apps.MainApp.validSizes
 import si.ogrodje.tttm.v2.persistance.{DB, DBConfiguration, TournamentResultsDAO}
-import zio.{Duration, Scope, Task, ZIO, ZLayer}
+import si.ogrodje.tttm.v2.*
 import zio.ZIO.logInfo
-import zio.http.Client
 import zio.json.*
+import zio.{Duration, Scope, Task, ZIO, ZLayer}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -39,6 +38,8 @@ object RunTournament:
     json = TournamentResults.tournamentResultsEncoder.encodeJson(tournamentResults, None)
     _   <- zio.Console.printLine(tournamentResults.toJsonPretty)
 
+    _ <- logInfo(s"Tournament with ID: $id has completed.")
+
     _ <-
       ZIO.foreachDiscard(maybeWriteTo) { path =>
         ZIO.attemptBlocking(
@@ -46,7 +47,7 @@ object RunTournament:
         )
       }
   yield ()).provide(
-    Client.default.and(Scope.default),
+    RichClient.live.and(Scope.default),
     ZLayer.fromZIO(DBConfiguration.fromEnvironment.flatMap(DB.transactor.make)),
     DBConfiguration.live
   )

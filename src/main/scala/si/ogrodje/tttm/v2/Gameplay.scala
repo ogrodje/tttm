@@ -3,6 +3,7 @@ package si.ogrodje.tttm.v2
 import si.ogrodje.tttm.v2.GameplayError.*
 import si.ogrodje.tttm.v2.Status.*
 import zio.*
+import zio.ZIO.logInfo
 import zio.http.*
 import zio.prelude.NonEmptyList
 
@@ -48,6 +49,7 @@ final class Gameplay private (
         .timeout(requestTimeout)
         .timed
         .mapError(th => NetworkingError(server, s"Networking error with ${th.getMessage}"))
+        .orElseFail(NetworkingError(server, s"Networking or system error encountered."))
     response                  <-
       ZIO.fromOption(maybeResponse).orElseFail(ServerTimeout(server, server.serverEndpoint.toString))
     move                      <-
@@ -85,6 +87,19 @@ final class Gameplay private (
     case Right(move)         => game.appendZIO(move).flatMap(handleGame(client, servers))
     case Left(gameplayError) => ZIO.succeed(game.copyAsCrashed(gameplayError.getMessage))
   }
+
+  private def readProxyInformation: ZIO[Any, Exception, Option[URL]] = for
+    maybeProxy            <- zio.System.envOrOption("HTTP_PROXY", None)
+    maybeUrl: Option[URL] <-
+      maybeProxy.fold(ZIO.none)(raw => ZIO.fromEither(URL.decode(raw)).map(s => Some(s)))
+  yield maybeUrl
+
+  private def originOrProxy: ZIO[Client, Exception, Client] =
+    readProxyInformation.flatMap {
+      case Some(proxyUrl) =>
+        ZIO.serviceWith[Client](_.proxy(Proxy(url = proxyUrl))) <* logInfo(s"Using proxy ${proxyUrl.toString}")
+      case None           => ZIO.service[Client]
+    }
 
   def play: ZIO[zio.Scope & Client, Throwable, (Game, GameplayResult)] = for
     client           <- ZIO.service[Client]

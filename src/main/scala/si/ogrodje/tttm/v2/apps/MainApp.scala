@@ -119,7 +119,7 @@ object MainApp extends ZIOCliDefault:
       Match
         .mk(serverA, serverB, numberOfGames.toLong, size)
         .playGames(concurrentProcesses = 3)
-        .provide(Client.default.and(Scope.default))
+        .provide(RichClient.live.and(Scope.default))
     _      <- printLine(MatchResult.matchResultJsonEncoder.encodeJson(out, Some(1)))
   yield ()
 

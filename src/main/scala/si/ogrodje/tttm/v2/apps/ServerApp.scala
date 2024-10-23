@@ -103,7 +103,7 @@ object ServerApp extends ZIOAppDefault:
 
   def run: Task[Nothing] = runWithPort().orDieWith(any => new RuntimeException("Boom."))
 
-  def runWithPort(port: Int = 7777) = (for
+  def runWithPort(port: Int = 7777): Task[Nothing] = (for
     _        <- logInfo(s"Booting server on port $port")
     dbConfig <- ZIO.service[DBConfiguration]
     _        <- DB.loadMigrate
@@ -112,7 +112,7 @@ object ServerApp extends ZIOAppDefault:
         .serve(routes)
         .provide(
           Server.defaultWithPort(port),
-          Client.default.and(Scope.default),
+          RichClient.live.and(Scope.default),
           ZLayer.fromZIO(PlayersConfig.fromFile(Path.of("players.yml"))),
           ZLayer.fromZIO(DB.transactor.make(dbConfig))
         )
