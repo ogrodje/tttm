@@ -37,4 +37,4 @@ jobs:
       - name: Run tournament on production
         run: |
           export DOCKER_HOST=ssh://low
-          ./bin/tttm-prod.sh run --remove-orphans --rm tournament
+          ./bin/tttm-prod.sh run --remove-orphans --rm -d tournament
