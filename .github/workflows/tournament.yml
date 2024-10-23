@@ -15,6 +15,7 @@ jobs:
       id-token: write
 
     steps:
+      - uses: actions/checkout@v4
       - uses: shimataro/ssh-key-action@v2
         with:
           known_hosts: unnecessary
