@@ -1,14 +1,11 @@
 package si.ogrodje.tttm.v2
 
+import eu.timepit.refined.api.*
+import si.ogrodje.tttm.v2.scoring.Scoring
 import zio.*
+import zio.http.*
 import zio.logging.backend.SLF4J
 import zio.test.*
-import zio.json.*
-import Status.*
-import zio.test.TestAspect.*
-import zio.http.*
-import eu.timepit.refined.api.*
-import java.net.MalformedURLException
 
 object ScoringTest extends ZIOSpecDefault:
   override val bootstrap: ZLayer[Any, Any, zio.test.TestEnvironment] =
@@ -101,7 +98,6 @@ object ScoringTest extends ZIOSpecDefault:
 
       // println(TournamentResults.tournamentResultsEncoder.encodeJson(sampleResults, Some(1)))
       val scoringResult = Scoring.forSize(sampleResults, Size.unsafe(3))(using explain = false)
-      println(scoringResult)
-      assertTrue(1 == 1)
+      assertTrue(scoringResult.map(_.id) == List("P2", "P1", "P3"))
     }
   }

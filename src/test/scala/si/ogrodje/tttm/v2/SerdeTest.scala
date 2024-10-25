@@ -1,9 +1,9 @@
 package si.ogrodje.tttm.v2
 
-import si.ogrodje.tttm.v2.GameTest.suite
 import zio.*
 import zio.logging.backend.SLF4J
 import zio.test.*
+
 import java.util.UUID
 
 object SerdeTest extends ZIOSpecDefault:

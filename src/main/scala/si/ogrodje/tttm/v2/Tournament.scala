@@ -1,5 +1,6 @@
 package si.ogrodje.tttm.v2
 
+import si.ogrodje.tttm.v2.scoring.{Scores, TournamentScores}
 import zio.http.Client
 import zio.json.*
 import zio.stream.ZStream
@@ -16,11 +17,25 @@ final case class TournamentResults(
   playersConfig: PlayersConfig = PlayersConfig.empty,
   @jsonField("size_3") size3: List[MatchResult],
   @jsonField("size_5") size5: List[MatchResult],
-  @jsonField("size_7") size7: List[MatchResult]
-)
+  @jsonField("size_7") size7: List[MatchResult],
+  @jsonField("size_3_scores") size3scores: Scores = List.empty,
+  @jsonField("size_5_scores") size5scores: Scores = List.empty,
+  @jsonField("size_7_scores") size7scores: Scores = List.empty
+):
+  def copyWithScores(scores: TournamentScores): TournamentResults =
+    copy(
+      size3scores = scores.getOrElse(Size.unsafe(3), List.empty),
+      size5scores = scores.getOrElse(Size.unsafe(5), List.empty),
+      size7scores = scores.getOrElse(Size.unsafe(7), List.empty)
+    )
+
 object TournamentResults:
   given tournamentResultsEncoder: JsonEncoder[TournamentResults] = DeriveJsonEncoder.gen
-  val empty: TournamentResults                                   = apply(
+
+  given JsonDecoder[MatchResult]                                 = DeriveJsonDecoder.gen
+  given tournamentResultsDecoder: JsonDecoder[TournamentResults] = DeriveJsonDecoder.gen
+
+  val empty: TournamentResults = apply(
     UUID.randomUUID(),
     PlayersConfig.empty,
     List.empty,

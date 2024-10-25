@@ -1,10 +1,18 @@
-package si.ogrodje.tttm.v2
-import zio.json.*
+package si.ogrodje.tttm.v2.scoring
+
+import zio.{Task, ZIO}
+import zio.stream.ZStream
+import si.ogrodje.tttm.v2.{MatchPlayerResult, MatchResult, PlayerServerID, Size, Sizes, TournamentResults}
+import eu.timepit.refined.auto.*
+
+type Score            = Double
+type Scores           = List[PlayerScore]
+type TournamentScores = Map[Size, Scores]
 
 object Scoring:
-  type MatchResults = List[MatchResult]
-  type Explain      = Boolean
-  val defaultExplain: Explain = true
+  private type MatchResults = List[MatchResult]
+  private type Explain      = Boolean
+  val defaultExplain: Explain = false
 
   extension (mr: MatchResults)
     private def filterFor(id: PlayerServerID): MatchResults =
@@ -22,11 +30,12 @@ object Scoring:
   private def pickOtherMatchPlayerResult(matchResult: MatchResult, id: PlayerServerID): MatchPlayerResult =
     if matchResult.playerXID != id then matchResult.playerXResult else matchResult.playerOResult
 
-  final case class Step[-In](op: In => Double, explanation: String)
+  final case class Step(op: Double => Double, explanation: String)
   private object Step:
-    def empty: Step[Double] = Step((n: Double) => 0, "0")
+    def empty: Step                                         = Step(identity, "0")
+    def of(op: Double => Double, explanation: String): Step = apply(op, explanation)
 
-  private def scoreMatchResults(matchResult: MatchResult, id: PlayerServerID)(using explain: Explain): Double =
+  private def scoreMatchResults(id: PlayerServerID)(matchResult: MatchResult)(using explain: Explain): Score =
     val myMatchResults @ MatchPlayerResult(
       played,
       won,
@@ -39,7 +48,8 @@ object Scoring:
       responseMin,
       responseMax,
       numberOfMoves,
-      movesPerGameAverage
+      movesPerGameAverage,
+      gameIDs
     ) =
       pickMatchPlayerResult(matchResult, id)
 
@@ -55,26 +65,37 @@ object Scoring:
       otherResponseMin,
       otherResponseMax,
       otherNumberOfMoves,
-      otherMovesPerGameAverage
+      otherMovesPerGameAverage,
+      otherGameIDs
     ) =
       pickOtherMatchPlayerResult(matchResult, id)
 
+    if explain then println(s"""Inputs:
+                               |Played = ${played}
+                               |Won = ${won}
+                               |Tie = ${tie}
+                               |Lost = ${lost}
+                               |Crashed = ${crashed}
+                               |movesPerGameAverage = ${movesPerGameAverage}
+                               |otherMovesPerGameAverage = ${otherMovesPerGameAverage}
+                               |responseP99 = ${responseP99}
+                               |otherResponseP99 = ${otherResponseP99}\n""".stripMargin)
     val sum = List(
       Step.empty,
-      Step[Double](n => won.toDouble * 3, s"won * 3: $won * 3"),
-      Step[Double](n => tie.toDouble * 1, s"tie * 1: $tie * 1"),
-      Step[Double](n => lost.toDouble * 0, s"lost * 0: $lost * 0"),
-      Step[Double](
+      Step.of(_ => won.toDouble * 3, s"won * 3: $won * 3"),
+      Step.of(_ => tie.toDouble * 1, s"tie * 1: $tie * 1"),
+      Step.of(_ => lost.toDouble * 0, s"lost * 0: $lost * 0"),
+      Step.of(
         // Less moves means 20% of won bonus points
         _ => if movesPerGameAverage < otherMovesPerGameAverage then (won.toDouble * 1.20).ceil else 0,
         s"Less moves bonus: IF ($movesPerGameAverage < $otherMovesPerGameAverage) THEN: ceil($won * 1.20)"
       ),
-      Step[Double](
+      Step.of(
         // If ties match and player is faster than number of played, 30% is bonus
         _ => if tie == otherTie && responseP99 < otherResponseP99 then (played.toDouble * 1.30).ceil else 0,
         s"Speed bonus: IF ($tie == $otherTie && $responseP99 < $otherResponseP99) THEN: ceil($played * 1.30)"
       ),
-      Step[Double](
+      Step.of(
         // Crash costs 1% of current score
         n => n - (1 to crashed.toInt).map(_ => n * 1.01).sum,
         s"Crash penalty: Crashed: $crashed"
@@ -88,16 +109,32 @@ object Scoring:
     if explain then println("-" * 10 + s"\nSUM = $sum")
     sum
 
-  type Scores = Map[PlayerServerID, Double]
   def forSize(tournamentResults: TournamentResults, size: Size)(using explain: Explain = defaultExplain): Scores =
     val matchResults: MatchResults = pickResults(tournamentResults, size)
     tournamentResults.playersConfig.players
       .filter(_.sizes.contains(size))
       .map { player =>
         val playerID = player.id
-        val sum      = matchResults.filterFor(playerID).map(mr => scoreMatchResults(mr, playerID)).sum
-        if explain then println(s"Player ID: ${playerID}, Score = ${sum}")
+        val sum      = matchResults.filterFor(playerID).map(scoreMatchResults(playerID)).sum
+        if explain then println(s"Player ID: $playerID, Score = $sum")
         player.id -> sum
       }
-      .sortBy(-_._2)
-      .toMap
+      .map((id, score) => PlayerScore.apply(id, score))
+      .sortBy(-_.score)
+
+  def forTournament(tournamentResults: TournamentResults)(using
+    explain: Explain = defaultExplain
+  ): Task[TournamentScores] =
+    val sizes: Sizes = Sizes.unsafe(
+      List(
+        if tournamentResults.size3.isEmpty then None else Some(Size.unsafe(3)),
+        if tournamentResults.size5.isEmpty then None else Some(Size.unsafe(5)),
+        if tournamentResults.size7.isEmpty then None else Some(Size.unsafe(7))
+      ).collect { case Some(value) => value }
+    )
+
+    ZStream
+      .fromIterable(sizes)
+      .mapZIOParUnordered(3)(size => ZIO.succeed(Scoring.forSize(tournamentResults, size)).map(r => size -> r))
+      .runCollect
+      .map(_.toMap)

@@ -9,6 +9,7 @@ import zio.schema.{DeriveSchema, Schema}
 @jsonHintNames(SnakeCase)
 @jsonMemberNames(SnakeCase)
 final case class GameplayResult(
+  gid: GID,
   @jsonField("duration_ms") duration: Duration,
   status: Status,
   @jsonField("winner") maybeWinner: Option[PlayerServerID] = None,
@@ -29,6 +30,7 @@ object GameplayResult:
     val List(serverA, serverB) = servers.toList
 
     GameplayResult(
+      gid = game.gid,
       duration,
       game.status,
       maybeWinner = game.status match
@@ -59,11 +61,10 @@ object ServerResult:
 
   given serverResultJsonEncoder: JsonEncoder[ServerResult] = DeriveJsonEncoder.gen[ServerResult]
 
-  def fromGame(game: Game, symbol: Symbol): ServerResult = {
+  def fromGame(game: Game, symbol: Symbol): ServerResult =
     val serverResult = ServerMeasurements.fromMoves(game.moves.filter(_.symbol == symbol))(
       ServerResult.apply,
       ServerResult.empty
     )
 
     serverResult
-  }

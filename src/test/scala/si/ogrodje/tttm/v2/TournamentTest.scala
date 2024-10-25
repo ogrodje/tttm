@@ -102,14 +102,11 @@ object TournamentTest extends ZIOSpecDefault:
       )
 
       assertZIO(tournamentResultsZIO)(
-        Assertion.assertion("test") { case tournamentResults @ TournamentResults(_, _, size3, size5, size7) =>
-          val json = tournamentResults.toJsonPretty
-          // val json = TournamentResults.tournamentResultsEncoder.encodeJson(tournamentResults, Some(1))
-          // tournamentResultsEncoder
-          println(s"JSON tournament results:\n${json}")
-          // println(j)
-
-          size3.nonEmpty && size5.nonEmpty && size7.nonEmpty
+        Assertion.assertion("test") {
+          case tournamentResults @ TournamentResults(_, _, size3, size5, size7, r3, r5, r7) =>
+            val json = tournamentResults.toJsonPretty
+            println(s"JSON tournament results:\n${json}")
+            size3.nonEmpty && size5.nonEmpty && size7.nonEmpty
         }
       )
     } @@ TestAspect.withLiveClock

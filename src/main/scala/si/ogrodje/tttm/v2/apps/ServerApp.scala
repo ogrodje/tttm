@@ -17,6 +17,7 @@ import zio.logging.backend.SLF4J
 import eu.timepit.refined.auto.*
 
 import java.nio.file.Path
+import java.util.UUID
 
 object ServerApp extends ZIOAppDefault:
   import Message.*
@@ -75,12 +76,12 @@ object ServerApp extends ZIOAppDefault:
 
   private val routes: Routes[Scope & Client & PlayersConfig & TransactorTask, Nothing] =
     Routes(
-      Method.GET / Root          -> handler(Response.text("Hello.")),
-      Method.GET / "players"     -> handler { (req: Request) =>
+      Method.GET / Root      -> handler(Response.text("Hello.")),
+      Method.GET / "players" -> handler { (req: Request) =>
         for playersConfig <- ZIO.service[PlayersConfig]
         yield Response.json(PlayersConfig.playersJsonEncoder.encodeJson(playersConfig))
       },
-      Method.GET / "sandbox"     -> handler { (req: Request) =>
+      Method.GET / "sandbox" -> handler { (req: Request) =>
         for
           serverAUrl    <- req.queryParameters.requiredAs[URL]("server-a")
           serverBUrl    <- req.queryParameters.requiredAs[URL]("server-b")
@@ -98,8 +99,20 @@ object ServerApp extends ZIOAppDefault:
             Response.text(s"Sorry, request was not processed. Cause: ${th.getClass.getSimpleName} / ${th.getMessage}")
           )
         ),
-      Method.GET / "tournaments" -> handler(TournamentsView.lastTournaments(_)).sandbox
+
+      // Tournaments
+      Method.GET / "tournament" / "latest"     ->
+        handler(TournamentsView.latestTournament(_)).orDie.catchAllDefect(errorHandler),
+      Method.GET / "tournament" / string("id") ->
+        handler { (id: String, req: Request) =>
+          TournamentsView.read(UUID.fromString(id), req)
+        }.orDie.catchAllDefect(errorHandler)
     ) @@ cors(corsConfig)
+
+  private def errorHandler(th: Throwable) =
+    handler(
+      Response.text(s"Sorry, request was not processed. Cause: ${th.getClass.getSimpleName} / ${th.getMessage}")
+    )
 
   def run: Task[Nothing] = runWithPort().orDieWith(any => new RuntimeException("Boom."))
 

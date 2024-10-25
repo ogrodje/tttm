@@ -1,10 +1,9 @@
 package si.ogrodje.tttm.v2
 
+import si.ogrodje.tttm.v2.Status.*
 import zio.*
 import zio.logging.backend.SLF4J
 import zio.test.*
-import Status.*
-import zio.test.TestAspect.*
 
 object GameTest extends ZIOSpecDefault:
   override val bootstrap: ZLayer[Any, Any, zio.test.TestEnvironment] =
