@@ -22,7 +22,7 @@ services:
     depends_on: [ pg ]
     restart: unless-stopped
     deploy: { replicas: 0 }
-    command: [ "tournament", "--number-of-games", "10", "--store-results", "false" ]
+    command: [ "tournament", "--number-of-games", "10", "--store-results", "true" ]
 
   pg:
     image: postgres:17
