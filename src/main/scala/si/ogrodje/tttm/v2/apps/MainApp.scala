@@ -25,6 +25,7 @@ object MainApp extends ZIOCliDefault:
       numberOfGames: BigInt,
       size: Option[Int],
       storeResult: Boolean,
+      explainScoring: Boolean,
       writeTo: Option[Path]
     )                                extends Subcommand
     case PlayCommand(
@@ -49,7 +50,7 @@ object MainApp extends ZIOCliDefault:
     Validation.succeed(serverCommand.port.toInt)
 
   // Tournament
-  private type TournamentCommandArgs = (BigInt, Option[Int], Boolean, Option[Path])
+  private type TournamentCommandArgs = (BigInt, Option[Int], Boolean, Boolean, Option[Path])
   private val tournamentCommand: Command[TournamentCommandArgs] = Command(
     "tournament",
     Options.integer("number-of-games").alias("ng").withDefault(BigInt(10)) ++
@@ -58,17 +59,19 @@ object MainApp extends ZIOCliDefault:
         .alias("s")
         .withDefault(None) ++
       Options.boolean("store-results") ++
+      Options.boolean("explain-scoring") ++
       Options.file("write-to").alias("out").optional,
     Args.none
   ).withHelp(HelpDoc.p("Play the tournament between players"))
 
   private def validateTournamentCommand(
     tournamentCommand: TournamentCommand
-  ): ZValidation[Nothing, Nothing, (Int, Option[Int], Boolean, Option[Path])] =
+  ): ZValidation[Nothing, Nothing, (Int, Option[Int], Boolean, Boolean, Option[Path])] =
     Validation.validate(
       Validation.succeed(tournamentCommand.numberOfGames.toInt),
       Validation.succeed(tournamentCommand.size),
       Validation.succeed(tournamentCommand.storeResult),
+      Validation.succeed(tournamentCommand.explainScoring),
       Validation.succeed(tournamentCommand.writeTo)
     )
 

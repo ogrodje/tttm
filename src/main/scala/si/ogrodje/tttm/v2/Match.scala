@@ -24,13 +24,14 @@ final case class MatchPlayerResult(
   @jsonField("response_min_ms") responseMin: Double = 0,
   @jsonField("response_max_ms") responseMax: Double = 0,
   numberOfMoves: Int = 0,
-  @jsonField("moves_per_game_average") movesPerGameAverage: Double = 0
-  // @jsonField("moves_per_game_average_won") movesPerGameAverageWon: Double = 0
+  @jsonField("moves_per_game_average") movesPerGameAverage: Double = 0,
+  @jsonField("game_ids") gameIDs: Set[GID] = Set.empty
 ) extends ServerMeasurements
 
 object MatchPlayerResult:
   val empty: MatchPlayerResult                                 = apply()
-  given matchResultJsonEncoder: JsonEncoder[MatchPlayerResult] = DeriveJsonEncoder.gen[MatchPlayerResult]
+  given matchResultJsonEncoder: JsonEncoder[MatchPlayerResult] = DeriveJsonEncoder.gen
+  given matchResultJsonDecoder: JsonDecoder[MatchPlayerResult] = DeriveJsonDecoder.gen
 
 @jsonHintNames(SnakeCase)
 @jsonMemberNames(SnakeCase)
@@ -41,8 +42,10 @@ final case class MatchResult(
   playerOResult: MatchPlayerResult = MatchPlayerResult.empty
 )
 object MatchResult:
-  given matchResultJsonEncoder: JsonEncoder[MatchResult] = DeriveJsonEncoder.gen[MatchResult]
-  val empty: MatchResult                                 = apply(playerXID = "x", playerOID = "o")
+  given matchResultJsonEncoder: JsonEncoder[MatchResult] = DeriveJsonEncoder.gen
+  given matchResultJsonDecoder: JsonDecoder[MatchResult] = DeriveJsonDecoder.gen
+
+  val empty: MatchResult = apply(playerXID = "x", playerOID = "o")
 
 final case class Match private (
   id: MatchID,
@@ -135,9 +138,10 @@ final case class Match private (
               responseMin,
               responseMax,
               numberOfMoves,
-              _
+              _,
+              gameIDs
             ),
-            gameplayResult @ GameplayResult(duration, status, maybeWinner, serverA, serverB, moves)
+            gameplayResult @ GameplayResult(gid, duration, status, maybeWinner, serverA, serverB, moves)
           ) =>
         matchPlayerResult.copy(
           played = played + 1,
@@ -151,7 +155,8 @@ final case class Match private (
           crashed = (maybeWinner, status) match
             case Some(winnerPlayerID) -> CrashedBy(_, _) if winnerPlayerID != playerServerID => crashed + 1
             case _                                                                           => crashed,
-          numberOfMoves = numberOfMoves + moves.count(_.playerServerID.getOrElse("other") == playerServerID)
+          numberOfMoves = numberOfMoves + moves.count(_.playerServerID.getOrElse("other") == playerServerID),
+          gameIDs = gameIDs ++ Set(gid)
         )
     }
 
@@ -167,7 +172,6 @@ final case class Match private (
           responseMin = min,
           responseMax = max,
           movesPerGameAverage = init.numberOfMoves.toDouble / init.played.toDouble
-          // movesPerGameAverageWon = init.numberOfMoves.toDouble / init.won.toDouble
         )
       },
       init
