@@ -15,6 +15,7 @@ import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
 import zio.http.Middleware.{cors, CorsConfig}
 import zio.logging.backend.SLF4J
 import eu.timepit.refined.auto.*
+import zio.http.Status as ZIOStatus
 
 import java.nio.file.Path
 import java.util.UUID
@@ -74,6 +75,8 @@ object ServerApp extends ZIOAppDefault:
     }
   }
 
+  private val (size3, size5, size7) = (Size.unsafe(3), Size.unsafe(5), Size.unsafe(7))
+
   private val routes: Routes[Scope & Client & PlayersConfig & TransactorTask, Nothing] =
     Routes(
       Method.GET / Root      -> handler(Response.text("Hello.")),
@@ -100,6 +103,20 @@ object ServerApp extends ZIOAppDefault:
           )
         ),
 
+      // Ranking
+      Method.GET / "ranking" / "size-3"      ->
+        handler(TournamentsView.rankingFor(size3)).orDie.catchAllDefect(errorHandler),
+      Method.GET / "ranking" / "size-5"      ->
+        handler(TournamentsView.rankingFor(size5)).orDie.catchAllDefect(errorHandler),
+      Method.GET / "ranking" / "size-7"      ->
+        handler(TournamentsView.rankingFor(size7)).orDie.catchAllDefect(errorHandler),
+      Method.GET / "ranking" / "full-size-3" ->
+        handler(TournamentsView.rankingForWithPlayers(size3)).orDie.catchAllDefect(errorHandler),
+      Method.GET / "ranking" / "full-size-5" ->
+        handler(TournamentsView.rankingForWithPlayers(size5)).orDie.catchAllDefect(errorHandler),
+      Method.GET / "ranking" / "full-size-7" ->
+        handler(TournamentsView.rankingForWithPlayers(size7)).orDie.catchAllDefect(errorHandler),
+
       // Tournaments
       Method.GET / "tournament" / "latest"     ->
         handler(TournamentsView.latestTournament(_)).orDie.catchAllDefect(errorHandler),
@@ -111,7 +128,12 @@ object ServerApp extends ZIOAppDefault:
 
   private def errorHandler(th: Throwable) =
     handler(
-      Response.text(s"Sorry, request was not processed. Cause: ${th.getClass.getSimpleName} / ${th.getMessage}")
+      logError(s"Crashed with: ${th.getMessage}")
+        .as(
+          Response
+            .text(s"Sorry, request was not processed. Cause: ${th.getClass.getSimpleName} / ${th.getMessage}")
+            .status(ZIOStatus.InternalServerError)
+        )
     )
 
   def run: Task[Nothing] = runWithPort().orDieWith(any => new RuntimeException("Boom."))

@@ -10,15 +10,20 @@ import zio.test.*
 import zio.json.*
 
 import java.net.URI
+import scala.util.control.NoStackTrace
+
+final case class TypeError(message: String) extends RuntimeException(s"Problem with type ${message}") with NoStackTrace
 
 object TournamentTest extends ZIOSpecDefault:
+  private val verbose = !true
+
   override val bootstrap: ZLayer[Any, Any, zio.test.TestEnvironment] =
     Runtime.removeDefaultLoggers >>> SLF4J.slf4j >>> testEnvironment
 
   private val authorName                         =
-    RefType.applyRef[AuthorName]("Oto Brglez").left.map(v => new RuntimeException(s"Boom $v")).toTry.get
+    RefType.applyRef[AuthorName]("Oto Brglez").left.map(TypeError.apply).toTry.get
   private val nameOf: String => PlayerServerName = rawName =>
-    RefType.applyRef[PlayerServerName](rawName).left.map(v => new RuntimeException(s"Boom $v")).toTry.get
+    RefType.applyRef[PlayerServerName](rawName).left.map(TypeError.apply).toTry.get
 
   private val authorURL = URL.decode("https://epic.blog").toTry.get
 
@@ -47,9 +52,17 @@ object TournamentTest extends ZIOSpecDefault:
     p1.copy(name = nameOf("p5"), endpointURL = URL.decode("https://serverD").toTry.get, sizes = Sizes.unsafeOf(7))
   )
 
-  def spec = suite("Tournament")(
+  private def mkTournament(port: Int): Tournament =
+    Tournament.fromPlayersConfig(
+      config.copy(
+        players = config.players.zipWithIndex.map { case (player, i) =>
+          player.copy(endpointURL = URL.root.port(port).path(s"/${player.id}"))
+        }
+      )
+    )
+
+  def spec: Spec[TestEnvironment & Scope, Any] = suite("Tournament")(
     test("matches generator") {
-      val verbose    = !true
       val tournament = Tournament.fromPlayersConfig(config, sizes = Sizes.validSizes)
 
       tournament.tournamentMatches.foreach { case (size, m) =>
@@ -64,16 +77,8 @@ object TournamentTest extends ZIOSpecDefault:
       )
     },
     test("play the tournament") {
-      val verbose              = !true
       val tournamentResultsZIO = (for
-        port              <- ZIO.serviceWithZIO[Server](_.port)
-        tournament         =
-          Tournament.fromPlayersConfig(config.copy(players = config.players.zipWithIndex.map { case (player, i) =>
-            player.copy(
-              endpointURL = URL.root.port(port).path(s"/${player.id}")
-              // sizes = Sizes.unsafeOf(3)
-            )
-          }))
+        tournament        <- ZIO.serviceWithZIO[Server](_.port).map(mkTournament)
         _                 <-
           TestServer.addRoutes {
             Routes(
@@ -105,7 +110,7 @@ object TournamentTest extends ZIOSpecDefault:
         Assertion.assertion("test") {
           case tournamentResults @ TournamentResults(_, _, size3, size5, size7, r3, r5, r7) =>
             val json = tournamentResults.toJsonPretty
-            println(s"JSON tournament results:\n${json}")
+            println(s"JSON tournament results:\n$json")
             size3.nonEmpty && size5.nonEmpty && size7.nonEmpty
         }
       )
