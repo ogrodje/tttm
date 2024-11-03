@@ -46,8 +46,7 @@ object TournamentsView:
         .map((id, rankings) =>
           id -> rankings
             .map(row => (row.tournamentID, unsafeDateParser(row.day), row.ranking, row.score))
-            .sortBy(_._1)
-            .reverse
+            .sortBy(_._2)
         )
         .toList
         .sortBy(_._2.headOption.map(_._2))

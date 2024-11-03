@@ -112,20 +112,21 @@ final case class Game private (
     sub: Array[Option[Symbol]]
   )(main: Array[Option[Symbol]]): Boolean = isSubsequence(main, sub)
 
-  private def wonRows(symbol: Symbol): Boolean =
+  private type Check = Symbol => Boolean
+  private val wonRows: Check = symbol =>
     grid
       .grouped(size)
       .map(_.map(_._1))
       .exists(sequenceOf(arrayOfSymbols(symbol)))
 
-  private def wonColumns(symbol: Symbol): Boolean =
+  private val wonColumns: Check = symbol =>
     (0 until size)
       .map(r => (0 until size).map(symbolAt(_, r)))
       .map(_.toArray)
       .exists(sequenceOf(arrayOfSymbols(symbol)))
 
-  private def hasWon(symbol: Symbol): Boolean =
-    Seq(wonRows, wonColumns, wonDiagonals).exists(f => f(symbol))
+  private val hasWon: Check = symbol =>
+    Seq(wonRows, wonColumns, wonDiagonals).exists(_(symbol))
 
   private def isFull: Boolean = moves.length == size * size
 
@@ -141,7 +142,7 @@ final case class Game private (
       case _ if isFull                  => Tie
       case _                            => Pending
 
-  private def wonDiagonals(symbol: Symbol): Boolean =
+  private val wonDiagonals: Check = symbol =>
     val minimumSize: Int = size.value match
       case 3 => 3
       case _ => 4
