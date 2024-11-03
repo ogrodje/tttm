@@ -69,7 +69,7 @@ object TournamentResultsDAO:
       val sizeTable: Fragment = size match
         case s if s == Size.unsafe(3) => Fragment.const("t.size_3_scores")
         case s if s == Size.unsafe(5) => Fragment.const("t.size_5_scores")
-        case s if s == Size.unsafe(7) => Fragment.const("t.size_5_scores")
+        case s if s == Size.unsafe(7) => Fragment.const("t.size_7_scores")
 
       (sql"""SELECT
                 tournament_id,
