@@ -74,13 +74,10 @@ object TournamentResultsDAO:
       (sql"""SELECT
                 tournament_id,
                 day,
-                (day_scores ->> 'id')   as server_id,
-                (day_scores -> 'score') as score,
-                row_number() OVER (PARTITION BY day ORDER BY
-                    day DESC,
-                    (day_scores -> 'score') DESC
-                    )                   AS day_ranking
-           FROM (SELECT t.created_at::timestamp::date       as day,
+                (day_scores ->> 'id')   AS server_id,
+                (day_scores -> 'score') AS score,
+                row_number() OVER (PARTITION BY day ORDER BY (day_scores -> 'score') DESC)                   AS day_ranking
+           FROM (SELECT t.created_at::timestamp::date AS day,
                         jsonb_array_elements(""" ++ sizeTable ++ sql""") as day_scores,
                         t.id as tournament_id
                  FROM tournaments t
@@ -92,7 +89,7 @@ object TournamentResultsDAO:
                     , t.id
                  ORDER BY
                     t.created_at::timestamp::date DESC,
-                    """ ++ sizeTable ++ sql""" -> 'score' DESC) as day_scores;
+                    """ ++ sizeTable ++ sql""" -> 'score' DESC) AS day_scores;
            """.stripMargin).queryWithLabel("last-ranking")
 
   def save(

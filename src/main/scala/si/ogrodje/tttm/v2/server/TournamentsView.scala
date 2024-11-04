@@ -49,7 +49,7 @@ object TournamentsView:
             .sortBy(_._2)
         )
         .toList
-        .sortBy(_._2.headOption.map(_._2))
+        .sortBy(_._2.headOption.map(_._3))
     rankingWithPlayers =
       results.flatMap { case (serverID, results) =>
         players
@@ -59,7 +59,7 @@ object TournamentsView:
               serverID,
               player,
               results,
-              rank = results.headOption.map(_._3).getOrElse(-1)
+              rank = results.lastOption.map(_._3).getOrElse(999)
             )
           )
       }.sortBy(_.rank)
