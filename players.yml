@@ -70,3 +70,11 @@ players:
     repository_url: https://github.com/overlordtm/rusty-tttm
     endpoint_url: https://rusty-tttm.andraz-379.workers.dev/
     sizes: [ 3 ]
+
+  - name: hardy
+    author: Oto Brglez
+    tags: [ rust, tokio ]
+    author_url: https://github.com/otobrglez
+    repository_url: https://github.com/otobrglez/hardy
+    endpoint_url: https://hardy.fly.dev
+    sizes: [ 3 ]
