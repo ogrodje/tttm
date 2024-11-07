@@ -12,7 +12,7 @@ import zio.json.*
 import java.net.URI
 import scala.util.control.NoStackTrace
 
-final case class TypeError(message: String) extends RuntimeException(s"Problem with type ${message}") with NoStackTrace
+final case class TypeError(message: String) extends RuntimeException(s"Problem with type $message") with NoStackTrace
 
 object TournamentTest extends ZIOSpecDefault:
   private val verbose = !true

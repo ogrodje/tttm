@@ -8,7 +8,7 @@ import si.ogrodje.tttm.v2.QueryParamOps.*
 import si.ogrodje.tttm.v2.persistance.{DB, *}
 import si.ogrodje.tttm.v2.persistance.DB.TransactorTask
 import si.ogrodje.tttm.v2.server.*
-import zio.*
+import zio.{http, *}
 import zio.ZIO.{logError, logInfo, provideLayer}
 import zio.http.*
 import zio.http.ChannelEvent.{UserEvent, UserEventTriggered}
@@ -121,9 +121,8 @@ object ServerApp extends ZIOAppDefault:
       Method.GET / "tournament" / "latest"     ->
         handler(TournamentsView.latestTournament(_)).orDie.catchAllDefect(errorHandler),
       Method.GET / "tournament" / string("id") ->
-        handler { (id: String, req: Request) =>
-          TournamentsView.read(UUID.fromString(id), req)
-        }.orDie.catchAllDefect(errorHandler)
+        handler((id: String, req: Request) => TournamentsView.read(UUID.fromString(id), req)).orDie
+          .catchAllDefect(errorHandler)
     ) @@ cors(corsConfig)
 
   private def errorHandler(th: Throwable) =
