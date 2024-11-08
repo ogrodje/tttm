@@ -23,18 +23,14 @@ create type GAME_MOVE AS
     symbol           SYMBOL,
     position         MOVE_POSITION,
     player_server_id varchar(255),
-    duration         interval
+    duration_ms      double precision
 );
 
 create table games
 (
     id              uuid
-        constraint games_pk
-            primary key,
-    tournament_id   uuid         not null
-        constraint tournaments_fk
-            references tournaments
-            on delete cascade,
+        constraint games_pk primary key,
+    tournament_id   uuid         not null, -- Because games can be persisted before tournament is complete
 
     server_a        varchar(255) not null, -- Represents server playing X
     server_a_result SERVER_RESULT,
@@ -43,11 +39,10 @@ create table games
 
     maybe_winner    varchar(255),          -- If there is a winner
     status          STATUS       not null, -- State of the game
-    crashed_by      varchar(255),          -- If crash put message here
+    crashed_by      varchar(255),          -- If crash put ID here
     crashed_message text,                  -- Place for crash message
 
-    duration        interval,
-
+    duration_ms     double precision,
     size            SIZE         not null,
     moves           GAME_MOVE[],
     created_at      timestamptz default now()

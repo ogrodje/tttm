@@ -2,6 +2,7 @@ package si.ogrodje.tttm.v2
 
 import si.ogrodje.tttm.v2.Match.{MatchID, NumberOfGames}
 import si.ogrodje.tttm.v2.Status.CrashedBy
+import si.ogrodje.tttm.v2.persistance.GameplayResultQueue
 import zio.*
 import zio.ZIO.logInfo
 import zio.http.Client
@@ -57,6 +58,7 @@ final case class Match private (
 
   def playGames(
     concurrentProcesses: Int = 4,
+    maybeGameplayResultQueue: Option[GameplayResultQueue] = None,
     maybeGameplayReporter: Option[GameplayReporter] = None,
     requestTimeout: Duration = Duration.fromSeconds(2)
   ): ZIO[Scope & Client, Throwable, MatchResult] =
@@ -78,10 +80,17 @@ final case class Match private (
             )
             .play
             .map(result => servers -> result)
-            .tap { case (_, (g, gameplayResult)) =>
-              val gameplayResultJson = GameplayResult.gameplayResultJsonEncoder.encodeJson(gameplayResult, Some(2))
-              logInfo(s"Completed game n: ${n + 1}; Size: ${g.size}, Moves: ${g.moves.length}, Status: ${g.status}")
-            // *> zio.Console.printLine(grJson)
+            .tap { case (servers, result @ (game, gameplayResult)) =>
+              ZIO.succeed(maybeGameplayResultQueue).flatMap {
+                case Some(q) => q.offer(result)
+                case None    => ZIO.unit
+              }
+            }
+            .tap { case (_, (game, gameplayResult)) =>
+              // val gameplayResultJson = GameplayResult.gameplayResultJsonEncoder.encodeJson(gameplayResult, Some(2))
+              logInfo(
+                s"Completed game id: ${game.gid}, n: ${n + 1}; Size: ${game.size}, Moves: ${game.moves.length}, Status: ${game.status}"
+              )
             }
         }
 

@@ -1,7 +1,7 @@
 package si.ogrodje.tttm.v2
 
 import si.ogrodje.tttm.v2.Status.{CrashedBy, Won}
-import zio.Duration
+import zio.{Duration, Queue, UIO}
 import zio.json.*
 import zio.prelude.NonEmptyList
 import zio.schema.{DeriveSchema, Schema}
@@ -62,9 +62,7 @@ object ServerResult:
   given serverResultJsonEncoder: JsonEncoder[ServerResult] = DeriveJsonEncoder.gen[ServerResult]
 
   def fromGame(game: Game, symbol: Symbol): ServerResult =
-    val serverResult = ServerMeasurements.fromMoves(game.moves.filter(_.symbol == symbol))(
+    ServerMeasurements.fromMoves(game.moves.filter(_.symbol == symbol))(
       ServerResult.apply,
       ServerResult.empty
     )
-
-    serverResult

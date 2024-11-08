@@ -11,11 +11,11 @@ object Dependencies {
     val sentryLogback: Version = "7.12.1"
     val ical4j: Version        = "4.0.1"
     val quartz: Version        = "2.3.2"
-    val zio: Version           = "2.1.11"
+    val zio: Version           = "2.1.12"
     val zioLogging: Version    = "2.3.2"
     val zioHttp: Version       = "3.0.1"
     val postgresql: Version    = "42.7.4"
-    val flyway: Version        = "10.20.0"
+    val flyway: Version        = "10.21.0"
   }
 
   lazy val zio: Modules = Seq(
@@ -32,7 +32,7 @@ object Dependencies {
     "dev.zio" %% "zio-logging",
     "dev.zio" %% "zio-logging-slf4j2"
   ).map(_ % Versions.zioLogging) ++ Seq(
-    "ch.qos.logback" % "logback-classic" % "1.5.11"
+    "ch.qos.logback" % "logback-classic" % "1.5.12"
   ) ++ Seq(
     "dev.zio" %% "zio-schema",
     "dev.zio" %% "zio-schema-json",
@@ -59,10 +59,6 @@ object Dependencies {
   ).map(_ % Versions.log4cats) ++ Seq(
     "io.sentry" % "sentry-logback" % Versions.sentryLogback
   )
-
-  lazy val quartz: Modules = Seq(
-    "org.quartz-scheduler" % "quartz"
-  ).map(_ % Versions.quartz)
 
   lazy val db: Modules = Seq(
     "org.tpolecat" %% "doobie-core",
