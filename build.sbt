@@ -5,7 +5,7 @@ import Dependencies.*
 import NativePackagerHelper._
 
 ThisBuild / version            := "0.0.1"
-ThisBuild / scalaVersion       := "3.5.1"
+ThisBuild / scalaVersion       := "3.6.1"
 ThisBuild / evictionErrorLevel := Level.Info
 
 lazy val root = (project in file("."))

@@ -24,7 +24,7 @@ object RankingRow:
   given rankingRowEncoder: JsonEncoder[RankingRow] = DeriveJsonEncoder.gen
 
 object TournamentResultsDAO:
-  private type DAOTask[+Out] = RIO[TransactorTask, Out]
+  type DAOTask[+Out] = RIO[TransactorTask, Out]
 
   given Put[UUID]               = Put[String].contramap(_.toString)
   given Put[List[MatchResult]]  = Put[String].contramap(_.toJson)
@@ -65,12 +65,18 @@ object TournamentResultsDAO:
       (queryResults ++ orderByCreated ++ limit())
         .queryWithLabel("latest-tournament")
 
-    def rankingForRange(size: Size, interval: String = "30 days"): Query0[RankingRow] =
-      val sizeTable: Fragment = size match
-        case s if s == Size.unsafe(3) => Fragment.const("t.size_3_scores")
-        case s if s == Size.unsafe(5) => Fragment.const("t.size_5_scores")
-        case s if s == Size.unsafe(7) => Fragment.const("t.size_7_scores")
+    private val sizeTable: Size => Fragment =
+      case s if s == Size.unsafe(3) => Fragment.const("t.size_3_scores")
+      case s if s == Size.unsafe(5) => Fragment.const("t.size_5_scores")
+      case s if s == Size.unsafe(7) => Fragment.const("t.size_7_scores")
 
+    def rankingForRange(size: Size, interval: String = "30 days"): Query0[RankingRow] =
+      rankingFor(size, sql"""t.created_at::timestamp::date >= CURRENT_DATE - $interval::interval""")
+
+    def rankingForTournament(size: Size, tournamentID: TournamentID): Query0[RankingRow] =
+      rankingFor(size, sql"""t.id = $tournamentID::uuid""")
+
+    private def rankingFor(size: Size, where: Fragment): Query0[RankingRow] =
       (sql"""SELECT
                 tournament_id,
                 day,
@@ -78,18 +84,17 @@ object TournamentResultsDAO:
                 (day_scores -> 'score') AS score,
                 row_number() OVER (PARTITION BY day ORDER BY (day_scores -> 'score') DESC)                   AS day_ranking
            FROM (SELECT t.created_at::timestamp::date AS day,
-                        jsonb_array_elements(""" ++ sizeTable ++ sql""") as day_scores,
-                        t.id as tournament_id
+                        jsonb_array_elements(""" ++ sizeTable(size) ++ sql""") AS day_scores,
+                        t.id AS tournament_id
                  FROM tournaments t
-                 WHERE
-                    t.created_at::timestamp::date >= CURRENT_DATE - ${interval}::interval
+                 WHERE """ ++ where ++ sql"""
                  GROUP BY
                     t.created_at::timestamp::date,
-                    """ ++ sizeTable ++ sql"""
+                    """ ++ sizeTable(size) ++ sql"""
                     , t.id
                  ORDER BY
                     t.created_at::timestamp::date DESC,
-                    """ ++ sizeTable ++ sql""" -> 'score' DESC) AS day_scores;
+                    """ ++ sizeTable(size) ++ sql""" -> 'score' DESC) AS day_scores;
            """.stripMargin).queryWithLabel("last-ranking")
 
   def save(
@@ -105,5 +110,8 @@ object TournamentResultsDAO:
   def latest: DAOTask[Option[TournamentResults]] =
     ZIO.serviceWithZIO[TransactorTask](queries.latest.option.transact)
 
-  def rankingFor(size: Size): DAOTask[List[RankingRow]] =
+  def rankingForRange(size: Size): DAOTask[List[RankingRow]] =
     ZIO.serviceWithZIO[TransactorTask](queries.rankingForRange(size).to[List].transact)
+
+  def rankingForTournament(size: Size, tournamentID: TournamentID): DAOTask[List[RankingRow]] =
+    ZIO.serviceWithZIO[TransactorTask](queries.rankingForTournament(size, tournamentID).to[List].transact)

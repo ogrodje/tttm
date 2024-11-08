@@ -1,13 +1,19 @@
 package si.ogrodje.tttm.v2.apps
 
 import si.ogrodje.tttm.v2.apps.MainApp.validSizes
-import si.ogrodje.tttm.v2.persistance.{DB, DBConfiguration, TournamentResultsDAO}
+import si.ogrodje.tttm.v2.persistance.{
+  DB,
+  DBConfiguration,
+  GameplayResultQueue,
+  GameplayResultSink,
+  TournamentResultsDAO
+}
 import si.ogrodje.tttm.v2.*
 import si.ogrodje.tttm.v2.scoring.Scoring
 import zio.ZIO.logInfo
 import zio.json.*
 import zio.stream.ZStream
-import zio.{Duration, Scope, Task, ZIO, ZLayer}
+import zio.{Duration, Promise, Queue, Scope, Task, ZIO, ZLayer}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
@@ -34,11 +40,19 @@ object RunTournament:
     // Run migration if persistence is needed
     _ <- ZIO.when(storeResults)(DB.loadMigrate)
 
+    // Queue for mid-game results
+    gameplayResultsQueue <- GameplayResultQueue.mk
+
     // Run tournament
     tournamentResults <-
-      Tournament
-        .fromPlayersConfig(playersConfig, sizes, numberOfGames = numberOfGames)
-        .play(requestTimeout = Duration.fromSeconds(2L))
+      val tournament = Tournament.fromPlayersConfig(playersConfig, sizes, numberOfGames)
+      GameplayResultSink.make(tournament.id, gameplayResultsQueue).flatMap(_.observe) &>
+        tournament
+          .play(
+            requestTimeout = Duration.fromSeconds(2L),
+            maybeGameplayResultQueue = Some(gameplayResultsQueue)
+          )
+          .zipLeft(gameplayResultsQueue.offer(GameplayResultQueue.Done))
 
     // Scoring
     tournamentScores  <- Scoring.forTournament(tournamentResults)

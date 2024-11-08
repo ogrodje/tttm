@@ -1,10 +1,11 @@
 package si.ogrodje.tttm.v2
 
+import si.ogrodje.tttm.v2.persistance.GameplayResultQueue
 import si.ogrodje.tttm.v2.scoring.{Scores, TournamentScores}
 import zio.http.Client
 import zio.json.*
-import zio.stream.ZStream
-import zio.{Duration, RIO, Scope}
+import zio.stream.{ZSink, ZStream}
+import zio.{Duration, Queue, RIO, Scope}
 
 import java.time.{LocalDateTime, ZoneId}
 import java.util.UUID
@@ -58,6 +59,7 @@ final case class Tournament private (
   def play(
     concurrentPlayProcesses: Int = 3,
     concurrentGameProcesses: Int = 1,
+    maybeGameplayResultQueue: Option[GameplayResultQueue] = None,
     maybeGameplayReporter: Option[GameplayReporter] = None,
     requestTimeout: Duration = Duration.fromSeconds(2)
   ): RIO[Scope & Client, TournamentResults] =
@@ -65,18 +67,22 @@ final case class Tournament private (
     playStream(
       concurrentPlayProcesses,
       concurrentGameProcesses,
+      maybeGameplayResultQueue,
       maybeGameplayReporter,
       requestTimeout
-    ).runFold(TournamentResults.empty) { case (tournamentResults, (gameMatch, matchResult)) =>
-      gameMatch.size match
-        case `s3` => tournamentResults.copy(size3 = (tournamentResults.size3 ++ List(matchResult)).sorted)
-        case `s5` => tournamentResults.copy(size5 = (tournamentResults.size5 ++ List(matchResult)).sorted)
-        case `s7` => tournamentResults.copy(size7 = (tournamentResults.size7 ++ List(matchResult)).sorted)
-    }.map(_.copy(playersConfig = playersConfig))
+    )
+      .runFold(TournamentResults.empty) { case (tournamentResults, (gameMatch, matchResult)) =>
+        gameMatch.size match
+          case `s3` => tournamentResults.copy(size3 = (tournamentResults.size3 ++ List(matchResult)).sorted)
+          case `s5` => tournamentResults.copy(size5 = (tournamentResults.size5 ++ List(matchResult)).sorted)
+          case `s7` => tournamentResults.copy(size7 = (tournamentResults.size7 ++ List(matchResult)).sorted)
+      }
+      .map(_.copy(playersConfig = playersConfig))
 
   private def playStream(
     concurrentPlayProcesses: Int = 3,
     concurrentGameProcesses: Int = 1,
+    maybeGameplayResultQueue: Option[GameplayResultQueue] = None,
     maybeGameplayReporter: Option[GameplayReporter] = None,
     requestTimeout: Duration = Duration.fromSeconds(2)
   ): ZStream[Scope & Client, Throwable, (Match, MatchResult)] =
@@ -87,7 +93,9 @@ final case class Tournament private (
         gMatch
           .playGames(
             concurrentProcesses = concurrentGameProcesses,
-            requestTimeout = requestTimeout
+            maybeGameplayResultQueue,
+            maybeGameplayReporter,
+            requestTimeout
           )
           .map(gMatch -> _)
       }
